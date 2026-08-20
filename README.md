@@ -2,7 +2,10 @@
   <strong>🦞 Lumen · 流明</strong>
 </p>
 <p align="center">
-  <em>一个 24/7 常驻运行、能操控整台电脑的个人 Agent Runtime — 像一束光，照亮并替你打理这台电脑</em>
+  <em>Your personal intelligence layer · 你的个人智能中枢</em>
+</p>
+<p align="center">
+  <em>一个 24/7 常驻运行、能操控整台电脑的开源 AI Runtime — 拥有记忆、推理、工具调用与计算机操作能力，成为你数字世界的那一点光</em>
 </p>
 
 <p align="center">
@@ -135,28 +138,46 @@ EventBus ───── 广播 → Proactive 主动恢复 / 前端 SSE 实时�
 
 ---
 
-## 🏗️ 架构分层
+## 🏗️ 架构分层（Lumen 视角）
 
 ```
-┌─────────────────────────────────────────────────────┐
-│ 接入层                                               │
-│  REST API (30+ 端点) │ SSE 事件流 │ Web Dashboard(20页) │
-└────────────────────────┬────────────────────────────┘
-┌────────────────────────▼────────────────────────────┐
-│ Agent Brain (internal/agent)                         │
-│  Loop │ Planner │ Evaluator │ Replanner │ Router     │
-│  IntentRouter │ Policy │ Proactive │ Reflection      │
-└────────────────────────┬────────────────────────────┘
-┌────────────────────────▼────────────────────────────┐
-│ Tools Registry (9 个)                                │
-│  Shell │ File │ Browser │ System │ Windows           │
-│  Computer(Vision) │ SubAgent │ Safety │ MCP.*        │
-└────────────────────────┬────────────────────────────┘
-┌────────────────────────▼────────────────────────────┐
-│ Cognition & Data                                     │
-│  Memory Score │ Lifecycle │ User Profile │ Knowledge │
-│  SQLite(15 表) │ Token │ Trajectory │ Checkpoint     │
-└─────────────────────────────────────────────────────┘
+                 ✦ Lumen · 流明 ✦
+                Your personal intelligence layer
+                ┌────────────────────────────┐
+                │    Memory 记忆             │
+                │  Recall / Reflection / Profile│
+                └──────────────┬─────────────┘
+                ┌──────────────▼─────────────┐
+                │   Reasoning 推理           │
+                │  Planner / Evaluator / Router│
+                └──────────────┬─────────────┘
+                ┌──────────────▼─────────────┐
+                │   Tools 工具               │
+                │  Windows/Browser/Files/Shell│
+                │  Computer(Vision)/MCP      │
+                └──────────────┬─────────────┘
+                ┌──────────────▼─────────────┐
+                │   Action 行动              │
+                │  Computer Use / 桌面操控    │
+                └────────────────────────────┘
+
+    上方所有能力，被一束光（Trace / 记忆评分 / 生命周期 / Policy）
+    持续照亮、记录与守护。
+```
+
+**对应真实分层：**
+
+```
+接入层  REST API (30+ 端点) │ SSE 事件流 │ Web Dashboard(20 页)
+   │
+Agent Brain  Loop │ Planner │ Evaluator │ Replanner │ Router
+             IntentRouter │ Policy │ Proactive │ Reflection
+   │
+Tools Registry  Shell │ File │ Browser │ System │ Windows
+             Computer(Vision) │ SubAgent │ Safety │ MCP.*
+   │
+Cognition & Data  Memory Score │ Lifecycle │ User Profile │ Knowledge
+             SQLite(15 表) │ Token │ Trajectory │ Checkpoint
 ```
 
 ---
@@ -385,9 +406,15 @@ npx vite build        # 构建到 internal/api/static
 ## 🗺️ Roadmap
 
 ```
+过去（OpenClaw 引擎阶段）
 v0.8  能力建设（Benchmark v2 / Context / ToolRepair / Vision / 前端闭环）
 v0.9  工程化（Benchmark v3 100 用例 / Trace / 失败分析 / 稳定化）
 v0.9.5 Real Usage Validation（Memory Score / Today 助手日报 / 两层模式）
+════════════════════════════════════════════════════════
+现在开始 —— Lumen · 你的个人智能中枢
+Lumen v0.1 Alpha  个人 Agent Runtime          ← 当前
+Lumen v0.5        Personal Assistant（记忆/画像/主动陪伴）
+Lumen v1.0        Personal AI OS（插件生态 / 多设备）
 ════════════════════════════════════════════════════════
 下一步：Dogfood 7 天真实使用（学习/项目/文件三场景），验证"真的能替你做事"
 ```
