@@ -1,0 +1,67 @@
+# OpenClaw Agent 策略配置
+# 事件 → 策略 → 决策 → 行动
+
+policies:
+  # 文件自动整理
+  - name: file_organize
+    event_type: file.created
+    enabled: true
+    quiet_hours:
+      start: 23
+      end: 8
+    max_per_hour: 5
+    keywords:
+      - ".pdf"
+      - ".docx"
+      - ".xlsx"
+      - ".png"
+      - ".jpg"
+      - ".zip"
+    min_priority: 3
+    action:
+      notify: true
+      auto_execute: true
+      tools:
+        - fs
+
+  # 任务失败自动重试
+  - name: task_auto_retry
+    event_type: task.failed
+    enabled: true
+    quiet_hours:
+      start: 23
+      end: 8
+    max_per_hour: 3
+    min_priority: 5
+    action:
+      notify: false
+      auto_execute: true
+      tools:
+        - shell.run
+
+  # 系统告警
+  - name: system_alert
+    event_type: system.alert
+    enabled: true
+    max_per_hour: 10
+    min_priority: 1
+    action:
+      notify: true
+      auto_execute: false
+
+  # Webhook 研究
+  - name: webhook_research
+    event_type: webhook.received
+    enabled: true
+    quiet_hours:
+      start: 23
+      end: 8
+    max_per_hour: 2
+    min_priority: 7
+    action:
+      notify: true
+      auto_execute: false
+      require_confirm: true
+      tools:
+        - browser
+        - shell.run

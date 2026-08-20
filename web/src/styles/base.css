@@ -1,0 +1,115 @@
+/* ============================================
+   基础样式
+   ============================================ */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  font-family: var(--font-family);
+  font-size: var(--font-size-md);
+  background: var(--color-bg);
+  color: var(--color-text-1);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: var(--color-primary);
+  text-decoration: none;
+  transition: color var(--transition-duration) var(--transition-timing);
+}
+
+a:hover {
+  color: var(--color-primary-hover);
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+code, pre {
+  font-family: var(--font-mono);
+}
+
+/* ---- 滚动条 ---- */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #d4d4d4;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #a3a3a3;
+}
+
+/* ============================================
+   交互与动效基础（全局）
+   ============================================ */
+
+/* 键盘可达性：仅键盘导航时显示焦点环 */
+:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: var(--color-primary-light);
+  color: var(--color-text-1);
+}
+
+/* 按钮/链接统一按压反馈 */
+button,
+a,
+.kb-card--clickable {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* 页面进入动画：SPA 切换时主内容淡入上移 */
+@keyframes kb-fade-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.kb-page {
+  animation: kb-fade-up 0.28s var(--transition-timing) both;
+}
+
+/* 通用微动效主色提升预设 */
+.kb-shadow-hover {
+  transition: transform var(--transition-duration) var(--transition-timing),
+              box-shadow var(--transition-duration) var(--transition-timing),
+              border-color var(--transition-duration) var(--transition-timing);
+}
+.kb-shadow-hover:hover {
+  transform: translateY(-2px);
+  border-color: var(--color-border-strong);
+  box-shadow: var(--shadow-2);
+}
+
+/* 可点击行（表格/列表）hover 反馈 */
+.kb-row-clickable {
+  transition: background var(--transition-duration) var(--transition-timing);
+}
+.kb-row-clickable:hover {
+  background: var(--color-primary-light);
+}
+

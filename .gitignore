@@ -1,0 +1,49 @@
+# Binary
+agent.exe
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Test binary
+*.test
+
+# Output of go coverage
+*.out
+
+# Dependency directories
+vendor/
+node_modules/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Data (user-specific)
+data/
+*.db
+*.db-journal
+*.db-wal
+
+# Logs
+*.log
+logs/
+
+# Environment
+.env
+.env.local
+
+# Secrets: 真实配置含 API Key，不提交（用 template: conf/config.yaml.example）
+conf/config.yaml
+
+# Temporary
+tmp/
+temp/
+*.tmp

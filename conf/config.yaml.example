@@ -1,0 +1,82 @@
+﻿server:
+    host: 0.0.0.0
+    port: 18080
+    api_token_ttl: 365d
+service:
+    name: openagent-agent
+    display_name: OpenAgent Agent Service
+    auto_start: true
+    heartbeat_interval: 30s
+    restart_delay: 10s
+    max_restart: 5
+db:
+    path: ./data/agent.db
+    wal: true
+workspace:
+    root: ./data/workspace
+    sandbox: true
+    allowed_paths: []
+llm:
+    default_provider: zhipu
+    providers:
+        deepseek:
+            type: openai-compatible
+            base_url: https://api.deepseek.com/v1
+            api_key_env: DEEPSEEK_API_KEY
+            model: deepseek-chat
+            max_tokens: 8192
+            timeout: "120"
+        ollama:
+            type: openai-compatible
+            base_url: http://127.0.0.1:11434/v1
+            api_key_env: ""
+            model: qwen3:0.6b
+            max_tokens: 4096
+            timeout: "120"
+        openai:
+            type: openai-compatible
+            base_url: https://open.bigmodel.cn/api/paas/v4/chat/completions
+            api_key_env: sk-YOUR_API_KEY_HERE
+            model: glm-4.7-flash
+            max_tokens: 4096
+            timeout: "120"
+        siliconflow:
+            type: openai-compatible
+            base_url: https://api.siliconflow.cn/v1
+            api_key_env: SILICON_API_KEY
+            model: Qwen/Qwen2.5-7B-Instruct
+            max_tokens: 4096
+            timeout: "120"
+        zhipu:
+            type: openai-compatible
+            base_url: https://open.bigmodel.cn/api/paas/v4
+            api_key_env: ZHIPU_API_KEY
+            api_key: sk-YOUR_API_KEY_HERE
+            model: glm-4-flash
+            max_tokens: 4096
+            timeout: "120"
+    embedding:
+        provider: local
+        model: bge-small-zh-v1.5
+        dim: 512
+agent:
+    max_concurrent_tasks: 5
+    step_timeout: 300ss
+    step_max_retries: 3
+    plan_max_steps: 30
+scheduler:
+    tick_interval: 60ss
+permissions:
+    policy_file: ./conf/permission.yaml
+    confirm_timeout: 60s
+observability:
+    metrics_enabled: true
+    audit_enabled: true
+    log_level: info
+    log_file: ./data/logs/agent.log
+browser:
+    engine: playwright
+    headful: true
+    user_data_dir: ./data/browser-profile
+    proxy_socks5: ""
+

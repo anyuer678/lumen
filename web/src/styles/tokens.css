@@ -1,0 +1,73 @@
+/* ============================================
+   Agent Dashboard 设计令牌 — 水墨宣纸主题
+   风格: 宣纸米白底 + 墨色文字 + 朱砂印章红
+   灵感: 书房 / 纸张 / 水墨（低饱和 · 细线 · 克制）
+   ============================================ */
+
+:root {
+  /* ---- 品牌色（水墨青 + 朱砂印） ---- */
+  --color-primary: #1e40af;
+  --color-primary-hover: #1e3a8a;
+  --color-primary-light: #e8edf7;
+  --color-success: #3f6212;
+  --color-success-light: #f0f7e8;
+  --color-warning: #b45309;
+  --color-warning-light: #faf3e7;
+  --color-danger: #b91c1c;
+  --color-danger-light: #faeaea;
+  --color-info: #57534e;
+  --color-info-light: #f0efec;
+
+  /* ---- 中性色（宣纸/墨色） ---- */
+  --color-bg: #f5f0e6;
+  --color-bg-elevated: #fdfbf5;
+  --color-border: #e2d9c3;
+  --color-border-strong: #c9bda0;
+  --color-text-1: #2b2a26;
+  --color-text-2: #5c584f;
+  --color-text-3: #8f887a;
+
+  /* ---- 圆角（方中带圆，书卷气） ---- */
+  --radius-sm: 2px;
+  --radius-md: 4px;
+  --radius-lg: 8px;
+  --radius-round: 999px;
+
+  /* ---- 阴影（宣纸般轻柔） ---- */
+  --shadow-1: 0 1px 2px rgba(80, 70, 50, 0.06);
+  --shadow-2: 0 4px 12px rgba(80, 70, 50, 0.08);
+  --shadow-3: 0 12px 32px rgba(80, 70, 50, 0.12);
+
+  /* ---- 字体（衬线书卷气 + 无衬线正文） ---- */
+  --font-family: 'Songti SC', 'STSong', 'SimSun', 'Noto Serif SC', Georgia, 'Times New Roman', serif;
+  --font-mono: 'SF Mono', 'Consolas', 'Monaco', monospace;
+  --font-size-xs: 12px;
+  --font-size-sm: 13px;
+  --font-size-md: 14px;
+  --font-size-lg: 17px;
+  --font-size-xl: 21px;
+  --font-size-2xl: 26px;
+
+  /* ---- 间距 ---- */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+
+  /* ---- 过渡 ---- */
+  --transition-duration: 0.25s;
+  --transition-timing: ease;
+
+  /* ---- 状态色（水墨重彩） ---- */
+  --status-pending: #57534e;
+  --status-queued: #6d28d9;
+  --status-running: #1e40af;
+  --status-paused: #b45309;
+  --status-waiting_confirm: #c2410c;
+  --status-completed: #3f6212;
+  --status-failed: #b91c1c;
+  --status-cancelled: #8f887a;
+}
