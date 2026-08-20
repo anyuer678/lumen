@@ -114,16 +114,16 @@ func (s *Scheduler) run() {
 func (s *Scheduler) tick() {
 	now := time.Now()
 	s.mu.RLock()
-	defer s.mu.RUnlock()
-
+	var toFire []*Job
 	for _, job := range s.jobs {
-		if !job.Enabled {
-			continue
+		if job.Enabled && job.NextRunAt != nil && now.After(*job.NextRunAt) {
+			toFire = append(toFire, job)
 		}
+	}
+	s.mu.RUnlock() // 先释放锁再启动 goroutine
 
-		if job.NextRunAt != nil && now.After(*job.NextRunAt) {
-			go s.fire(job)
-		}
+	for _, job := range toFire {
+		go s.fire(job)
 	}
 }
 
@@ -139,17 +139,21 @@ func (s *Scheduler) fire(job *Job, payload ...map[string]interface{}) {
 	goal := s.renderTemplate(job.GoalTemplate, data)
 
 	// 创建任务
+	var status string
 	if err := s.factory.CreateTask(goal, job.Priority); err != nil {
 		s.logger.Errorf("failed to create task for job %s: %v", job.ID, err)
-		job.LastStatus = "error"
+		status = "error"
 	} else {
-		job.LastStatus = "fired"
+		status = "fired"
 	}
 
-	// 更新状态
+	// 更新状态（持写锁，避免与 tick/ListJobs 并发读冲突）
 	now := time.Now()
+	s.mu.Lock()
+	job.LastStatus = status
 	job.LastRunAt = &now
 	job.NextRunAt = s.computeNextRun(job)
+	s.mu.Unlock()
 	s.store.UpdateJob(job)
 }
 

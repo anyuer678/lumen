@@ -78,8 +78,16 @@ func (r *Router) Route(task string, tools []string) string {
 		}
 	}
 
-	// 4. 默认
-	return r.config.Default
+	// 4. 默认：仅当默认 provider 可用时返回，否则回退到任意可用 provider
+	if p, ok := r.providers[r.config.Default]; ok && p != nil {
+		return r.config.Default
+	}
+	for name, p := range r.providers {
+		if p != nil {
+			return name
+		}
+	}
+	return ""
 }
 
 // GetProvider 获取指定 provider

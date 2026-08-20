@@ -4,7 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -89,7 +91,9 @@ func (h *SettingsHandler) UpdateSettings(w http.ResponseWriter, r *http.Request)
 		// 如果传了 api_key，直接设置环境变量
 		if ak, ok := llmRaw["api_key"].(string); ok && ak != "" {
 			if env, ok := llmRaw["api_key_env"].(string); ok && env != "" {
-				os.Setenv(env, ak)
+				if isValidEnvName(env) {
+					os.Setenv(env, ak)
+				}
 			}
 		}
 		if prow, ok := llmRaw["providers"].(map[string]interface{}); ok {
@@ -170,9 +174,23 @@ func (h *SettingsHandler) TestLLM(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 构造 OpenAI 兼容请求
+	// SSRF 防护：拒绝内网/私有/链路本地地址，防止探测内部服务
+	if err := validatePublicURL(req.BaseURL); err != nil {
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"status":  "error",
+			"message": "该 URL 不被允许（仅允许公网地址）：" + err.Error(),
+		})
+		return
+	}
+
+	// 构造 OpenAI 兼容请求（用 json.Marshal 避免字段拼接注入）
+	payload, _ := json.Marshal(map[string]interface{}{
+		"model":     req.Model,
+		"messages":  []map[string]string{{"role": "user", "content": "hi"}},
+		"max_tokens": 5,
+	})
 	url := req.BaseURL + "/chat/completions"
-	body := fmt.Sprintf(`{"model":"%s","messages":[{"role":"user","content":"hi"}],"max_tokens":5}`, req.Model)
+	body := string(payload)
 
 	httpReq, err := http.NewRequest("POST", url, strings.NewReader(body))
 	if err != nil {
@@ -214,4 +232,74 @@ func (h *SettingsHandler) TestLLM(w http.ResponseWriter, r *http.Request) {
 		"provider": req.Provider,
 		"model":    req.Model,
 	})
+}
+
+// validatePublicURL 防止 SSRF：仅允许公网 HTTP(S) 地址，
+// 拒绝 localhost、私有 IP、链路本地 (169.254.x.x)、0.0.0.0 等。
+func validatePublicURL(rawURL string) error {
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return err
+	}
+	if u.Scheme != "http" && u.Scheme != "https" {
+		return fmt.Errorf("仅支持 http/https")
+	}
+	host := u.Hostname()
+
+	// 域名无法判断是否为内网时（如 .local/纯主机名），保守拒绝
+	if net.ParseIP(host) == nil {
+		ip, err := net.LookupIP(host)
+		if err != nil {
+			return fmt.Errorf("无法解析主机")
+		}
+		for _, i := range ip {
+			if isBlockedIP(i) {
+				return fmt.Errorf("解析到内网地址 %s", i.String())
+			}
+		}
+		return nil
+	}
+	if isBlockedIP(net.ParseIP(host)) {
+		return fmt.Errorf("内网地址 %s", host)
+	}
+	return nil
+}
+
+func isBlockedIP(ip net.IP) bool {
+	if ip == nil {
+		return true
+	}
+	if ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() ||
+		ip.IsLinkLocalMulticast() || ip.IsUnspecified() || ip.IsMulticast() {
+		return true
+	}
+	// 链路本地 169.254.0.0/16（一些实现未覆盖）
+	if ip4 := ip.To4(); ip4 != nil && ip4[0] == 169 && ip4[1] == 254 {
+		return true
+	}
+	return false
+}
+
+// isValidEnvName 限制可设置的环境变量名，防止覆盖 PATH/PRELOAD 等危险变量
+func isValidEnvName(name string) bool {
+	blocked := map[string]bool{
+		"PATH": true, "LD_PRELOAD": true, "DYLD_INSERT_LIBRARIES": true,
+		"PYTHONPATH": true, "HOME": true, "USER": true, "SHELL": true,
+		"IFS": true, "LD_LIBRARY_PATH": true,
+	}
+	upper := strings.ToUpper(name)
+	if blocked[upper] {
+		return false
+	}
+	// 允许的字符：字母数字下划线，且不能以数字开头
+	if name == "" {
+		return false
+	}
+	for i, c := range name {
+		if c == '_' || (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (i > 0 && c >= '0' && c <= '9') {
+			continue
+		}
+		return false
+	}
+	return true
 }
