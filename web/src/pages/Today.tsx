@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { api } from '../api/client'
 import { Card, Loading, Empty } from '../components'
 import { useSSE } from '../hooks/useSSE'
+import { fetchJson } from '../api/client'
 
 interface TodayData {
   tasks: { total: number; completed: number; failed: number; running: number; items: any[] }
@@ -22,8 +23,8 @@ export default function Today() {
     Promise.all([
       api.listTasks({ limit: 50 }),
       api.getMemories(),
-      fetch('/v1/events?limit=50').then(r => r.json()).catch(() => []),
-      fetch('/v1/digest/today').then(r => r.json()).catch(() => ({ digest: '' })),
+      fetchJson('/events?limit=50').catch(() => []),
+      fetchJson('/digest/today').catch(() => ({ digest: '' })),
     ])
       .then(([tasksRes, memories, events, digestRes]) => {
         const items = tasksRes?.items ?? []

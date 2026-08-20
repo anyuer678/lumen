@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Card, Badge, Loading, Empty, Statistic } from '../components'
+import { fetchJson } from '../api/client'
 
 interface TokenUsage { id: number; provider: string; model: string; source: string; prompt_tokens: number; completion_tokens: number; total_tokens: number; cost_usd: number; duration_ms: number; task_id: string; created_at: string }
 interface Summary { prompt_tokens: number; completion_tokens: number; total_tokens: number; cost_usd: number; calls: number }
@@ -11,8 +12,8 @@ export default function TokenUsage() {
 
   useEffect(() => {
     Promise.all([
-      fetch('/v1/token-usage?since=week').then(r => r.json()),
-      fetch('/v1/token-usage/recent?limit=50').then(r => r.json()),
+      fetchJson('/token-usage?since=week'),
+      fetchJson('/token-usage/recent?limit=50'),
     ])
       .then(([s, r]) => { setSummary(s); setRecords(Array.isArray(r) ? r : []) })
       .catch(() => {})

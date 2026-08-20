@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Card, Button, Input, Select, FormItem, Empty, Badge, Loading, Modal } from '../components'
 import { useToast } from '../components/Toast'
+import { fetchJson } from '../api/client'
 
 interface Job {
   id: string
@@ -29,7 +30,7 @@ export default function Schedule() {
   })
 
   const refresh = useCallback(() => {
-    fetch('/v1/jobs').then(r => r.json())
+    fetchJson('/jobs')
       .then(d => setJobs(Array.isArray(d) ? d : []))
       .catch(() => setJobs([]))
       .finally(() => setLoading(false))
@@ -42,7 +43,7 @@ export default function Schedule() {
       showToast('请填写名称和目标', 'warning'); return
     }
     try {
-      await fetch('/v1/jobs', {
+      await fetchJson('/jobs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newJob)
@@ -57,7 +58,7 @@ export default function Schedule() {
   const handleDelete = async (id: string) => {
     if (!confirm('确定删除该定时任务？')) return
     try {
-      await fetch(`/v1/jobs/${id}`, { method: 'DELETE' })
+      await fetchJson(`/jobs/${id}`, { method: 'DELETE' })
       showToast('已删除', 'success')
       refresh()
     } catch (e) { showToast((e as Error).message, 'error') }

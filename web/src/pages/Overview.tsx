@@ -4,6 +4,7 @@ import { api } from '../api/client'
 import type { SystemStatus, Task } from '../api/types'
 import { Card, Badge, Progress, Statistic, Loading, Empty } from '../components'
 import { useSSE } from '../hooks/useSSE'
+import { fetchJson } from '../api/client'
 
 interface TokenUsage { calls: number; total_tokens: number; cost_usd: number }
 interface Event { id: string; type: string; source: string; payload: string; timestamp: string }
@@ -21,9 +22,9 @@ export default function Overview() {
     Promise.all([
       api.getStatus(),
       api.listTasks({ limit: 6 }),
-      fetch('/v1/token-usage').then(r => r.json()).catch(() => ({ calls: 0, total_tokens: 0, cost_usd: 0 })),
-      fetch('/v1/events?limit=5').then(r => r.json()).catch(() => []),
-      fetch('/v1/digest/today').then(r => r.json()).catch(() => ({ digest: '' })),
+      fetchJson('/token-usage').catch(() => ({ calls: 0, total_tokens: 0, cost_usd: 0 })),
+      fetchJson('/events?limit=5').catch(() => []),
+      fetchJson('/digest/today').catch(() => ({ digest: '' })),
     ])
       .then(([s, t, tk, ev, dg]) => {
         setStatus(s)

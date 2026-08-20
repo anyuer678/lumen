@@ -147,4 +147,18 @@ export const api = {
     request<void>(`/auth/token/${id}`, { method: 'DELETE' }),
 }
 
+/**
+ * fetchJson 与 request 相同，但暴露给页面内需要直接 fetch 的调用点。
+ * 会检查 res.ok：服务器错误不会静默当作成功数据。
+ */
+export async function fetchJson<T = any>(path: string, options?: RequestInit): Promise<T> {
+  const res = await fetch(`${BASE_URL}${path}`, options)
+  if (!res.ok) {
+    throw new ApiError(`HTTP ${res.status}`, res.status)
+  }
+  const text = await res.text().catch(() => '')
+  if (res.status === 204 || !text.trim()) return undefined as T
+  return JSON.parse(text) as T
+}
+
 export { ApiError }
