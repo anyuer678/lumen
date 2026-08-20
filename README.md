@@ -1,8 +1,8 @@
 <p align="center">
-  <strong>🦞 OpenClaw</strong>
+  <strong>🦞 Lumen · 流明</strong>
 </p>
 <p align="center">
-  <em>一个 24/7 常驻运行、能操控整台电脑的个人 Agent Runtime — 从聊天 Demo 到 Personal AI Runtime 底座</em>
+  <em>一个 24/7 常驻运行、能操控整台电脑的个人 Agent Runtime — 像一束光，照亮并替你打理这台电脑</em>
 </p>
 
 <p align="center">
@@ -20,7 +20,7 @@
 
 ## Why
 
-市面上多数 Agent 停在 *"LLM + Tools"*。OpenClaw 额外补齐了很多人忽视、却决定"Agent 能否长期可用"的部分：
+市面上多数 Agent 停在 *"LLM + Tools"*。Lumen 额外补齐了很多人忽视、却决定"Agent 能否长期可用"的部分：
 
 - **可靠性**：上下文预算、宽容工具调用修复、Checkpoint 断点恢复
 - **可观测**：每阶段轨迹追踪、失败自动分类
@@ -57,10 +57,11 @@
 - Go 1.26+
 - Node 18+（仅构建前端需要，可跳过）
 
-### 编译 & 运行
+### 克隆 & 运行
 
 ```sh
-cd openclaw
+git clone https://github.com/anyuer678/lumen.git
+cd lumen
 go build -o agent.exe ./cmd/agent
 $env:ZHIPU_API_KEY = "sk-你的key"   # Windows PowerShell
 ./agent.exe
@@ -323,7 +324,7 @@ Safety:       100%（10 种危险命令全拦截）
 
 ## 🧭 使用场景
 
-OpenClaw 被设计为可支撑三类真实场景（Dogfood 目标）：
+Lumen 被设计为可支撑三类真实场景（Dogfood 目标）：
 
 | 场景 | 流程 |
 |------|------|
@@ -395,16 +396,16 @@ v0.9.5 Real Usage Validation（Memory Score / Today 助手日报 / 两层模式�
 
 ## 💡 灵感来源
 
-OpenClaw 能从"聊天 Demo"走到"Agent Runtime 原型"，离不开两个开源项目**非常先进的设计思想**的启发。在此特别致以敬意：
+Lumen 能从"聊天 Demo"走到"Agent Runtime 原型"，离不开两个开源项目**非常先进的设计思想**的启发。在此特别致以敬意：
 
 - **[Reasonix](https://github.com/esengine/DeepSeek-Reasonix)**：其**子代理委派**让复杂任务能拆解并行、**轨迹回放**让 Agent 的每一次决策都能被离线复盘、**有界独立调用（boundedllm）**把复核隔离出主会话、**命令安全分解**把危险操作挡在门外——这些工程范式让 Agent 从"能跑"走向"能信"。
 - **[OpenClaw](https://github.com/openclaw/openclaw)**：其**上下文分层管理（context-engine）**解决了 Agent 最致命的上下文膨胀、**宽容工具调用修复（tool-call-repair)** 让模型哪怕不按协议输出也能被兜底、**视觉理解（media-understanding）**打通了"看见屏幕"的能力——这些设计抓住了真实 Agent 的核心痛点。
 
-**必须说明**：OpenClaw 借鉴的是上述项目的**设计思想与工程范式**，不是它们的代码。我们的实现是**独立重构**——用 Go 重新落地（例如上下文本复用其"分层预算"的思路、但结构独立设计；宽容解析参考其"不因模型输出不规范而整体失败"的理念、但解析器完全自研；并且 OpenClaw 源码是 TypeScript，我们也不可能照抄）。代码注释中已逐一标注"灵感来自 xxx"，尊重原始出处。若你在代码中发现任何与上述项目逐行一致的片段，请反馈，我们会立即修正。
+**必须说明**：Lumen 借鉴的是上述项目的**设计思想与工程范式**，不是它们的代码。我们的实现是**独立重构**——用 Go 重新落地（例如上下文本复用其"分层预算"的思路、但结构独立设计；宽容解析参考其"不因模型输出不规范而整体失败"的理念、但解析器完全自研；并且 OpenClaw 源码是 TypeScript，我们也不可能照抄）。代码注释中已逐一标注"灵感来自 xxx"，尊重原始出处。若你在代码中发现任何与上述项目逐行一致的片段，请反馈，我们会立即修正。
 
 ## License
 
-[MIT](LICENSE) — Copyright © 2026 OpenClaw Agent
+[MIT](LICENSE) — Copyright © 2026 Lumen (流明)
 
 ---
 
