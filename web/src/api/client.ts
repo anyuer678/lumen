@@ -4,6 +4,30 @@ import type { Task, TaskListResponse, SystemStatus, Step, Job, Confirmation } fr
 
 const BASE_URL = '/v1'
 
+// token 存储 key
+const TOKEN_KEY = 'lumen_token'
+
+// 从 localStorage 读取 token（可由 Settings 页调用 setAuthToken 更新）
+function getAuthToken(): string | null {
+  try {
+    return localStorage.getItem(TOKEN_KEY)
+  } catch {
+    return null
+  }
+}
+
+// 设置/清除 token（Settings 页保存时调用）
+export function setAuthToken(token: string | null): void {
+  try {
+    if (token) localStorage.setItem(TOKEN_KEY, token)
+    else localStorage.removeItem(TOKEN_KEY)
+  } catch { /* ignore */ }
+}
+
+export function getAuthTokenPublic(): string | null {
+  return getAuthToken()
+}
+
 class ApiError extends Error {
   status: number
   constructor(message: string, status: number) {
@@ -13,15 +37,20 @@ class ApiError extends Error {
 }
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
+  const headers = new Headers(options?.headers || {})
+  headers.set('Content-Type', 'application/json')
+  const token = getAuthToken()
+  if (token) headers.set('Authorization', `Bearer ${token}`)
+
   const res = await fetch(`${BASE_URL}${path}`, {
-    headers: {
-      'Content-Type': 'application/json',
-      ...(options?.headers || {}),
-    },
     ...options,
+    headers,
   })
 
   if (!res.ok) {
+    if (res.status === 401) {
+      throw new ApiError('未授权，请检查 Lumen API Token', res.status)
+    }
     const text = await res.text().catch(() => '')
     throw new ApiError(text || `Request failed: ${res.status}`, res.status)
   }
@@ -152,7 +181,11 @@ export const api = {
  * 会检查 res.ok：服务器错误不会静默当作成功数据。
  */
 export async function fetchJson<T = any>(path: string, options?: RequestInit): Promise<T> {
-  const res = await fetch(`${BASE_URL}${path}`, options)
+  const headers = new Headers(options?.headers || {})
+  headers.set('Content-Type', 'application/json')
+  const token = getAuthToken()
+  if (token) headers.set('Authorization', `Bearer ${token}`)
+  const res = await fetch(`${BASE_URL}${path}`, { ...options, headers })
   if (!res.ok) {
     throw new ApiError(`HTTP ${res.status}`, res.status)
   }

@@ -101,6 +101,8 @@ func (t *WindowsTool) windowFocus(ctx context.Context, args map[string]any) (*To
 	if title == "" {
 		return nil, fmt.Errorf("title is required for window_focus")
 	}
+	// 转义单引号，防 PowerShell 注入
+	titleEsc := strings.ReplaceAll(title, "'", "''")
 	script := fmt.Sprintf(`
 Add-Type @"
 using System;
@@ -110,7 +112,7 @@ public class Win32 {
 }
 "@
 $p = Get-Process | Where-Object { $_.MainWindowTitle -like '*%s*' } | Select-Object -First 1
-if ($p) { [Win32]::SetForegroundWindow($p.MainWindowHandle); Write-Output ('Focused: ' + $p.MainWindowTitle) } else { Write-Output 'Not found' }`, title)
+if ($p) { [Win32]::SetForegroundWindow($p.MainWindowHandle); Write-Output ('Focused: ' + $p.MainWindowTitle) } else { Write-Output 'Not found' }`, titleEsc)
 	cmd := exec.CommandContext(ctx, "powershell", "-NoProfile", "-Command", script)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -299,6 +301,9 @@ func (t *WindowsTool) notify(ctx context.Context, args map[string]any) (*ToolRes
 	if title == "" {
 		title = "Agent"
 	}
+	// 转义单引号，防 PowerShell 注入
+	titleEsc := strings.ReplaceAll(title, "'", "''")
+	bodyEsc := strings.ReplaceAll(body, "'", "''")
 
 	script := fmt.Sprintf(`
 [Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null
@@ -308,7 +313,7 @@ $textNodes.Item(0).AppendChild($template.CreateTextNode('%s'))
 $textNodes.Item(1).AppendChild($template.CreateTextNode('%s'))
 $toast = [Windows.UI.Notifications.ToastNotification]::new($template)
 [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier('Agent').Show($toast)
-`, title, body)
+`, titleEsc, bodyEsc)
 
 	cmd := exec.CommandContext(ctx, "powershell", "-Command", script)
 	_ = cmd.Run()

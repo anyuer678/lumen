@@ -76,11 +76,11 @@ func (h *ChatHandler) CreateSession(w http.ResponseWriter, r *http.Request) {
 		req.Title = "新对话"
 	}
 
-	_, err := h.db.Exec(
+	if _, err := h.db.Exec(
 		`INSERT INTO chat_sessions (id, title, created_at, updated_at) VALUES (?, ?, ?, ?)`,
-		id, req.Title, now, now)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		id, req.Title, now, now); err != nil {
+		h.logger.Warnf("create session failed: %v", err)
+		http.Error(w, "failed to create session", http.StatusInternalServerError)
 		return
 	}
 
@@ -93,7 +93,8 @@ func (h *ChatHandler) ListSessions(w http.ResponseWriter, r *http.Request) {
 	rows, err := h.db.Query(
 		`SELECT id, title, created_at, updated_at FROM chat_sessions ORDER BY updated_at DESC LIMIT 50`)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		h.logger.Warnf("list sessions failed: %v", err)
+		http.Error(w, "failed to list sessions", http.StatusInternalServerError)
 		return
 	}
 	defer rows.Close()
@@ -134,11 +135,11 @@ func (h *ChatHandler) SendMessage(w http.ResponseWriter, r *http.Request) {
 	// 保存用户消息
 	now := time.Now()
 	msgID := fmt.Sprintf("msg-%d", now.UnixMilli())
-	_, err := h.db.Exec(
+	if _, err := h.db.Exec(
 		`INSERT INTO chat_messages (id, session_id, role, content, created_at) VALUES (?, ?, 'user', ?, ?)`,
-		msgID, sessionID, req.Content, now)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		msgID, sessionID, req.Content, now); err != nil {
+		h.logger.Warnf("save user message failed: %v", err)
+		http.Error(w, "failed to save message", http.StatusInternalServerError)
 		return
 	}
 
@@ -431,7 +432,8 @@ func (h *ChatHandler) GetMessages(w http.ResponseWriter, r *http.Request) {
 		`SELECT id, session_id, role, content, created_at FROM chat_messages WHERE session_id = ? ORDER BY created_at`,
 		sessionID)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		h.logger.Warnf("get messages failed: %v", err)
+		http.Error(w, "failed to get messages", http.StatusInternalServerError)
 		return
 	}
 	defer rows.Close()

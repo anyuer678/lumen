@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -38,6 +39,11 @@ func NewRouter(tm *task.Manager, sched *scheduler.Scheduler, db *sql.DB, mcpRegi
 
 	// API 路由（优先级最高）
 	r.Route("/v1", func(r chi.Router) {
+		// 除 /health 与 SSE 只读流外的所有端点要求 Bearer token
+		if db != nil {
+			verifier := auth.NewTokenVerifier(db)
+			r.Use(tokenAuthMiddleware(verifier))
+		}
 		r.Get("/health", healthHandler)
 		r.Get("/status", statusHandler)
 		r.Get("/events", SSEHandler(GetBroadcaster()))
@@ -225,11 +231,8 @@ func statusHandler(w http.ResponseWriter, r *http.Request) {
 func corsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		origin := r.Header.Get("Origin")
-		// 只允许本地开发和本机访问
-		allowed := origin == "" ||
-			strings.HasPrefix(origin, "http://localhost") ||
-			strings.HasPrefix(origin, "http://127.0.0.1") ||
-			strings.HasPrefix(origin, "http://0.0.0.0")
+		// 只允许本地开发和本机访问（精确匹配 host:port，避免 localhost.evil.com 这类前缀欺骗）
+		allowed := origin == "" || isLocalOrigin(origin)
 
 		if allowed {
 			w.Header().Set("Access-Control-Allow-Origin", origin)
@@ -244,4 +247,40 @@ func corsMiddleware(next http.Handler) http.Handler {
 
 		next.ServeHTTP(w, r)
 	})
+}
+
+// isLocalOrigin 精确判断 origin 是否为本机（localhost/127.0.0.1/0.0.0.0）。
+// 用 url.Parse 只比对 host，避免 "http://localhost.evil.com" 这类前缀欺骗。
+func isLocalOrigin(origin string) bool {
+	u, err := url.Parse(origin)
+	if err != nil {
+		return false
+	}
+	host := u.Hostname()
+	return host == "localhost" || host == "127.0.0.1" || host == "0.0.0.0" || host == "::1"
+}
+
+// tokenAuthMiddleware 校验 /v1 下的 Bearer token。
+// 豁免只读/公开路径：health/status。SSE 事件流（/events）也放行只读展示。
+func tokenAuthMiddleware(verifier *auth.TokenVerifier) func(http.Handler) http.Handler {
+	exempt := func(path string) bool {
+		return strings.HasSuffix(path, "/health") ||
+			strings.HasSuffix(path, "/status") ||
+			strings.HasSuffix(path, "/events") ||
+			// token 管理端点豁免，否则首次无 token 无法创建 token（引导）
+			strings.Contains(path, "/auth/token")
+	}
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if exempt(r.URL.Path) {
+				next.ServeHTTP(w, r)
+				return
+			}
+			if _, err := verifier.Verify(r); err != nil {
+				http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
+				return
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
 }

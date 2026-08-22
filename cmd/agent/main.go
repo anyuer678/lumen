@@ -2,7 +2,10 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
 	"flag"
 	"fmt"
 	"os"
@@ -42,6 +45,12 @@ func main() {
 			}
 			if err := service.Uninstall(); err != nil {
 				fmt.Fprintf(os.Stderr, "uninstall error: %v\n", err)
+				os.Exit(1)
+			}
+			return
+		case "token":
+			if err := runToken(); err != nil {
+				fmt.Fprintf(os.Stderr, "token error: %v\n", err)
 				os.Exit(1)
 			}
 			return
@@ -86,6 +95,7 @@ func main() {
 	}
 }
 
+// loadConfig 加载配置（默认 ./conf/config.yaml，可用第2个参数指定）
 func loadConfig() error {
 	configPath := "./conf/config.yaml"
 	if len(os.Args) > 2 && !strings.HasPrefix(os.Args[2], "-") {
@@ -93,6 +103,48 @@ func loadConfig() error {
 	}
 	_, err := config.Load(configPath)
 	return err
+}
+
+// runToken 生成一个 API token 并写入数据库（仅输出一次明文）。
+// 用法：agent token [name]
+func runToken() error {
+	name := "default"
+	if len(os.Args) > 2 && !strings.HasPrefix(os.Args[2], "-") {
+		name = os.Args[2]
+	}
+
+	if err := loadConfig(); err != nil {
+		return fmt.Errorf("config: %w", err)
+	}
+	db, err := initDB()
+	if err != nil {
+		return fmt.Errorf("init db: %w", err)
+	}
+	defer db.Close()
+
+	raw := make([]byte, 32)
+	if _, err := rand.Read(raw); err != nil {
+		return err
+	}
+	tokenStr := "agt_" + hex.EncodeToString(raw)
+	hash := sha256.Sum256([]byte(tokenStr))
+
+	_, err = db.Exec(
+		`INSERT INTO api_tokens (id, name, token_hash, scopes, perm_level, enabled, created_at)
+		 VALUES (?, ?, ?, ?, 3, 1, datetime('now'))`,
+		"tok-"+hex.EncodeToString(raw[:4]), name, hex.EncodeToString(hash[:]),
+		"admin")
+	if err != nil {
+		return fmt.Errorf("insert token: %w", err)
+	}
+
+	fmt.Printf("✅ 已创建 API token（名称: %s，仅显示一次）\n", name)
+	fmt.Printf("   %s\n\n", tokenStr)
+	fmt.Println("使用方式：")
+	fmt.Println("   export LUMEN_TOKEN=\"<token>\"   # 或")
+	fmt.Println("   Authorization: Bearer <token>   # 或")
+	fmt.Println("   X-API-Token: <token>")
+	return nil
 }
 
 func runBenchmark() error {

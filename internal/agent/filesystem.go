@@ -153,8 +153,18 @@ func (t *FilesystemTool) checkSandbox(path string) error {
 		return err
 	}
 
-	// 检查是否在工作空间内
+	// 解析符号链接，防止通过 workspace 内 symlink 逃逸到任意路径
+	if resolved, rerr := filepath.EvalSymlinks(absPath); rerr == nil {
+		absPath = resolved
+	}
+
+	// 检查是否在工作空间内（也解析 workspace 的 symlink）
 	workspaceAbs, _ := filepath.Abs(t.workspaceRoot)
+	if resolved, rerr := filepath.EvalSymlinks(workspaceAbs); rerr == nil {
+		workspaceAbs = resolved
+	}
+
+	// 用 path 规范化比较，避免 /a/./b 或大小写绕过
 	if !strings.HasPrefix(absPath, workspaceAbs) {
 		return fmt.Errorf("access denied: path %s is outside workspace %s", path, t.workspaceRoot)
 	}

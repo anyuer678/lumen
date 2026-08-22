@@ -43,7 +43,7 @@ func (h *SettingsHandler) GetSettings(w http.ResponseWriter, r *http.Request) {
 		},
 		"llm": map[string]interface{}{
 			"default_provider": cfg.LLM.DefaultProvider,
-			"providers":        cfg.LLM.Providers,
+			"providers":        redactProviders(cfg.LLM.Providers),
 		},
 		"agent": map[string]interface{}{
 			"max_concurrent_tasks": cfg.Agent.MaxConcurrentTasks,
@@ -278,6 +278,16 @@ func isBlockedIP(ip net.IP) bool {
 		return true
 	}
 	return false
+}
+
+// redactProviders 复制 providers 并脱敏 api_key，避免明文返回给前端
+func redactProviders(providers map[string]config.LLMProvider) map[string]config.LLMProvider {
+	result := make(map[string]config.LLMProvider, len(providers))
+	for name, p := range providers {
+		p.APIKey = "" // 脱敏，只保留 api_key_env 提示
+		result[name] = p
+	}
+	return result
 }
 
 // isValidEnvName 限制可设置的环境变量名，防止覆盖 PATH/PRELOAD 等危险变量
