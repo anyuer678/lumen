@@ -2,6 +2,7 @@ package agent
 
 import (
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -23,6 +24,7 @@ type Policy struct {
 // PolicyEngine 决策引擎
 type PolicyEngine struct {
 	policies  []Policy
+	mu        sync.Mutex
 	actionLog []actionRecord
 }
 
@@ -145,15 +147,18 @@ func (e *PolicyEngine) Evaluate(event Event) (bool, string, *Policy) {
 func (e *PolicyEngine) countRecentActions(policyName string, within time.Duration) int {
 	cutoff := time.Now().Add(-within)
 	count := 0
+	e.mu.Lock()
 	for _, a := range e.actionLog {
 		if a.policy == policyName && a.timestamp.After(cutoff) {
 			count++
 		}
 	}
+	e.mu.Unlock()
 	return count
 }
 
 func (e *PolicyEngine) recordAction(policyName string) {
+	e.mu.Lock()
 	e.actionLog = append(e.actionLog, actionRecord{
 		timestamp: time.Now(),
 		policy:    policyName,
@@ -162,6 +167,7 @@ func (e *PolicyEngine) recordAction(policyName string) {
 	if len(e.actionLog) > 100 {
 		e.actionLog = e.actionLog[len(e.actionLog)-100:]
 	}
+	e.mu.Unlock()
 }
 
 // GetActivePolicies 获取启用的策略

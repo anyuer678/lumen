@@ -146,6 +146,24 @@ func (t *WindowsTool) powershell(ctx context.Context, args map[string]any) (*Too
 		return nil, fmt.Errorf("command is required for powershell")
 	}
 
+	// 安全校验：拒绝危险命令（复用 shell.go 黑名单 + 破坏性分类），
+	// 防止通过 powershell 动作绕过 shell 工具的安全限制
+	if blocked, reason := checkCommandBlocked(command); blocked {
+		return &ToolResult{
+			Raw:     fmt.Sprintf("命令被安全策略拦截：%s", reason),
+			Kind:    "text",
+			Summary: "blocked: " + reason,
+		}, fmt.Errorf("command blocked: %s", reason)
+	}
+	// 破坏性命令需更高权限（L2），此处直接拒绝并要求走确认流程
+	if ClassifyCommand(command) == CommandDestructive {
+		return &ToolResult{
+			Raw:     fmt.Sprintf("命令被识别为破坏性操作，已拒绝（分类：%s）", CommandClassLabel(CommandDestructive)),
+			Kind:    "text",
+			Summary: "destructive blocked",
+		}, fmt.Errorf("destructive command requires confirmation")
+	}
+
 	timeout := 30
 	if t, ok := args["timeout"].(float64); ok && t > 0 {
 		timeout = int(t)

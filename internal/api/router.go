@@ -264,11 +264,12 @@ func isLocalOrigin(origin string) bool {
 // 豁免只读/公开路径：health/status。SSE 事件流（/events）也放行只读展示。
 func tokenAuthMiddleware(verifier *auth.TokenVerifier) func(http.Handler) http.Handler {
 	exempt := func(path string) bool {
+		// 仅豁免只读/公开端点；token 管理必须认证，
+		// 否则任何网络客户端都能未授权铸造高权限 token。
+		// 创建 token 的唯一合法途径是 CLI: agent token <名称>
 		return strings.HasSuffix(path, "/health") ||
 			strings.HasSuffix(path, "/status") ||
-			strings.HasSuffix(path, "/events") ||
-			// token 管理端点豁免，否则首次无 token 无法创建 token（引导）
-			strings.Contains(path, "/auth/token")
+			strings.HasSuffix(path, "/events")
 	}
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -276,11 +277,13 @@ func tokenAuthMiddleware(verifier *auth.TokenVerifier) func(http.Handler) http.H
 				next.ServeHTTP(w, r)
 				return
 			}
-			if _, err := verifier.Verify(r); err != nil {
+			principal, err := verifier.Verify(r)
+			if err != nil {
 				http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
 				return
 			}
-			next.ServeHTTP(w, r)
+			// 把 principal 存入 context，供 handler 做权限/归属判断
+			next.ServeHTTP(w, r.WithContext(auth.WithPrincipal(r.Context(), principal)))
 		})
 	}
 }

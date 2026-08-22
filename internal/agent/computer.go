@@ -271,12 +271,13 @@ Write-Output "typed: %s"
 		if hotkey == "" {
 			return nil, fmt.Errorf("hotkey is required for keyboard hotkey")
 		}
-		// 热键映射
+		// 热键映射（转义单引号防 PS 注入）
+		hotkeyEsc := strings.ReplaceAll(hotkey, "'", "''")
 		psScript := fmt.Sprintf(`
 Add-Type -AssemblyName System.Windows.Forms
 [System.Windows.Forms.SendKeys]::SendWait('%s')
 Write-Output "hotkey: %s"
-`, translateHotkey(hotkey), hotkey)
+`, strings.ReplaceAll(translateHotkey(hotkey), "'", "''"), hotkeyEsc)
 		output := t.runPowerShell(psScript)
 		return &ToolResult{Raw: strings.TrimSpace(output), Kind: "text", Summary: fmt.Sprintf("Hotkey: %s", hotkey)}, nil
 
@@ -383,6 +384,8 @@ func escapeSendKeys(s string) string {
 	s = strings.ReplaceAll(s, ")", "{)}")
 	s = strings.ReplaceAll(s, "[", "{[}")
 	s = strings.ReplaceAll(s, "]", "{]}")
+	// 单引号转义，防止破坏 PS 单引号字符串/注入
+	s = strings.ReplaceAll(s, "'", "''")
 	return s
 }
 

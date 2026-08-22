@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"context"
 	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
@@ -9,6 +10,24 @@ import (
 	"strings"
 	"time"
 )
+
+// principalKey 用于在 context 中存取已认证的 TokenPrincipal
+type principalKey struct{}
+
+// WithPrincipal 把已认证的主体存入 context（供认证中间件使用）
+func WithPrincipal(ctx context.Context, p *TokenPrincipal) context.Context {
+	return context.WithValue(ctx, principalKey{}, p)
+}
+
+// PrincipalFromContext 从 context 取出已认证主体（未认证返回 nil）
+func PrincipalFromContext(ctx context.Context) *TokenPrincipal {
+	if v := ctx.Value(principalKey{}); v != nil {
+		if p, ok := v.(*TokenPrincipal); ok {
+			return p
+		}
+	}
+	return nil
+}
 
 // TokenVerifier 校验 HTTP 请求中的 Bearer token。
 type TokenVerifier struct {

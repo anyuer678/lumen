@@ -318,6 +318,10 @@ func (t *BrowserTool) open(ctx context.Context, url string) (*ToolResult, error)
 	if url == "" {
 		return nil, fmt.Errorf("url is required for browser open (usage: browser action=open url=https://example.com)")
 	}
+	// 安全：只允许 http/https URL，防止 start 处理非 http scheme（如 file://、恶意命令）
+	if !strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://") {
+		return nil, fmt.Errorf("browser open only supports http(s) URLs")
+	}
 	var cmd *exec.Cmd
 	switch runtime.GOOS {
 	case "windows":
