@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 	"go.uber.org/zap"
 	"agent/internal/agent"
 	"agent/internal/contextmgr"
@@ -147,7 +148,7 @@ func (h *ChatHandler) SendMessage(w http.ResponseWriter, r *http.Request) {
 	h.db.Exec(`UPDATE chat_sessions SET updated_at = ? WHERE id = ?`, now, sessionID)
 
 	// 预插入 assistant 占位消息（保证即使流中断，也有记录可查）
-	assistantMsgID := fmt.Sprintf("msg-%d", time.Now().UnixMilli()+1)
+	assistantMsgID := "msg-" + uuid.NewString()
 	h.db.Exec(`INSERT INTO chat_messages (id, session_id, role, content, created_at) VALUES (?, ?, 'assistant', '', ?)`,
 		assistantMsgID, sessionID, time.Now())
 

@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
-import { api } from '../api/client'
+import { api, setAuthToken, getAuthTokenPublic } from '../api/client'
 import { Card, Button, Input, Select, Loading, Badge, Tabs } from '../components'
 import { useToast } from '../components/Toast'
 
@@ -9,6 +9,9 @@ export default function Settings() {
   const [testing, setTesting] = useState(false)
   const { showToast } = useToast()
   const [activeTab, setActiveTab] = useState('llm')
+
+  // API Token
+  const [apiToken, setApiToken] = useState('')
 
   // LLM 配置
   const [provider, setProvider] = useState('zhipu')
@@ -54,6 +57,7 @@ export default function Settings() {
 
   const loadSettings = useCallback(async () => {
     try {
+      setApiToken(getAuthTokenPublic() || '')
       const [data, st] = await Promise.all([api.getSettings(), api.getStatus()])
       const p = data.llm?.default_provider || 'zhipu'
       const pc = data.llm?.providers?.[p] || {}
@@ -134,6 +138,12 @@ export default function Settings() {
     } finally {
       setTesting(false)
     }
+  }
+
+  // 保存 API Token 到 localStorage（前端自动附带在所有请求）
+  const handleSaveToken = () => {
+    setAuthToken(apiToken.trim() || null)
+    showToast(apiToken.trim() ? 'API Token 已保存' : 'API Token 已清除', 'success')
   }
 
   if (loading) return <Loading block text="加载配置中..." />
@@ -327,20 +337,44 @@ export default function Settings() {
 
         {/* ========== 安全配置 ========== */}
         {activeTab === 'security' && (
-          <Card shadow>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-              <div className="kb-form-item">
-                <label className="kb-form-label">确认超时（秒）</label>
-                <Input type="number" value={confirmTimeout} onChange={e => setConfirmTimeout(e.target.value)} />
-                <div style={{ fontSize: 12, color: 'var(--color-text-3)', marginTop: 4 }}>
-                  L2/L3 危险操作等待用户确认的超时时间，超时自动拒绝。
+          <div>
+            {/* API Token 认证 */}
+            <Card shadow style={{ marginBottom: 16 }}>
+              <div style={{ marginBottom: 8, fontSize: 14, fontWeight: 600 }}>🔑 API Token 认证</div>
+              <div style={{ fontSize: 12, color: 'var(--color-text-3)', marginBottom: 12 }}>
+                服务已启用 Token 认证。非本机访问需要 Bearer token，前端自动附带在请求头。
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <Input
+                  type="password"
+                  value={apiToken}
+                  onChange={e => setApiToken(e.target.value)}
+                  placeholder="agt_... 粘贴你的 Lumen API Token"
+                  style={{ flex: 1 }}
+                />
+                <Button size="small" variant="primary" onClick={handleSaveToken}>保存 Token</Button>
+                <Button size="small" onClick={() => { setApiToken(''); setAuthToken(null); showToast('已清除', 'success') }}>清除</Button>
+              </div>
+              <div style={{ marginTop: 8, fontSize: 12, color: 'var(--color-text-3)' }}>
+                生成方式：终端执行 <code>.\agent.exe token &lt;名称&gt;</code>（token 仅显示一次，请保存）。
+              </div>
+            </Card>
+
+            <Card shadow>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                <div className="kb-form-item">
+                  <label className="kb-form-label">确认超时（秒）</label>
+                  <Input type="number" value={confirmTimeout} onChange={e => setConfirmTimeout(e.target.value)} />
+                  <div style={{ fontSize: 12, color: 'var(--color-text-3)', marginTop: 4 }}>
+                    L2/L3 危险操作等待用户确认的超时时间，超时自动拒绝。
+                  </div>
                 </div>
               </div>
-            </div>
-            <div style={{ marginTop: 16, padding: 14, background: 'var(--color-warning-light)', borderRadius: 6, fontSize: 13, color: 'var(--color-warning)' }}>
-              ⚠️ Shell 破坏性命令（del、format、shutdown 等）已被自动拦截。命令安全分级在运行时自动生效，无需重启。
-            </div>
-          </Card>
+              <div style={{ marginTop: 16, padding: 14, background: 'var(--color-warning-light)', borderRadius: 6, fontSize: 13, color: 'var(--color-warning)' }}>
+                ⚠️ Shell 破坏性命令（del、format、shutdown 等）已被自动拦截。命令安全分级在运行时自动生效，无需重启。
+              </div>
+            </Card>
+          </div>
         )}
 
         {/* ========== 日志配置 ========== */}

@@ -18,22 +18,23 @@ func NewMemoryLifecycle(db *sql.DB) *MemoryLifecycle {
 	return &MemoryLifecycle{db: db}
 }
 
-// InitSchema 初始化生命周期所需的数据库字段
+// InitSchema 初始化 lifecycle 相关列
 func (m *MemoryLifecycle) InitSchema() error {
-	// 检查 memories 表是否有 lifecycle 字段
-	var count int
-	err := m.db.QueryRow(`SELECT COUNT(*) FROM pragma_table_info('memories') WHERE name='lifecycle'`).Scan(&count)
-	if err != nil || count == 0 {
-		// 添加 lifecycle 字段
-		m.db.Exec(`ALTER TABLE memories ADD COLUMN lifecycle TEXT DEFAULT 'active'`)
+	cols := []struct{ name, ddl string }{
+		{"lifecycle", "TEXT DEFAULT 'active'"},
+		{"access_count", "INTEGER DEFAULT 0"},
+		{"last_accessed", "DATETIME"},
 	}
-	err = m.db.QueryRow(`SELECT COUNT(*) FROM pragma_table_info('memories') WHERE name='access_count'`).Scan(&count)
-	if err != nil || count == 0 {
-		m.db.Exec(`ALTER TABLE memories ADD COLUMN access_count INTEGER DEFAULT 0`)
-	}
-	err = m.db.QueryRow(`SELECT COUNT(*) FROM pragma_table_info('memories') WHERE name='last_accessed'`).Scan(&count)
-	if err != nil || count == 0 {
-		m.db.Exec(`ALTER TABLE memories ADD COLUMN last_accessed DATETIME`)
+	for _, c := range cols {
+		var count int
+		if err := m.db.QueryRow(`SELECT COUNT(*) FROM pragma_table_info('memories') WHERE name=?`, c.name).Scan(&count); err != nil {
+			return err
+		}
+		if count == 0 {
+			if _, err := m.db.Exec(`ALTER TABLE memories ADD COLUMN ` + c.name + ` ` + c.ddl); err != nil {
+				return err
+			}
+		}
 	}
 	return nil
 }
