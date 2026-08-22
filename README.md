@@ -19,7 +19,7 @@
 
 ---
 
-> ⚠️ **测试版本警告**：本项目处于早期测试阶段，安全性尚未经过完整验证与修复，当前仅作为测试版本使用。待数日内会完善安全模块后再发布正式版。
+> ⚠️ **测试版本警告**：本项目处于早期测试阶段，尽管已实现 Token 认证、权限分级与基础注入防护，**安全性仍未经过完整的独立审计**，当前仅作为测试版本使用。请勿在未加固的情况下公网部署。
 
 跟它说"帮我整理下载目录"，它会自己规划 → 调用工具 → 执行 → 沉淀记忆 → 每天总结。**全本地运行，默认只监听本机。**
 
@@ -69,12 +69,16 @@ git clone https://github.com/anyuer678/lumen.git
 cd lumen
 go build -o agent.exe ./cmd/agent
 $env:ZHIPU_API_KEY = "sk-你的key"   # Windows PowerShell
-./agent.exe
+
+# 首次运行前，生成访问 token（仅显示一次）
+.\agent.exe token mytoken
+
+.\agent.exe
 ```
 
 浏览器打开 **http://localhost:18080**（首页为 Today 助手日报）。
 
-> ⚠️ **安全**：默认仅监听 `127.0.0.1`。如需公网访问，请先配置认证，勿直接改为 `0.0.0.0` 暴露无认证 API。
+> ⚠️ **安全**：服务已启用 Token 认证。默认仅监听 `127.0.0.1`。如需公网访问，请先配置 token，勿直接改为 `0.0.0.0` 暴露无认证 API。
 
 ### 配置 LLM
 
@@ -377,12 +381,39 @@ policies:
 
 ## 🔒 安全设计
 
+- **Token 认证**：所有 `/v1` 端点（除 /health、/status、/events）强制 Bearer token，未认证 API 调用直接 401
 - **命令黑名单**：format / del /s / rm -rf / diskpart / shutdown / reg delete 等 18+ 类危险命令默认拒绝
-- **路径沙箱**：阻止操作 `C:\Windows` / `C:\Program Files` 等系统目录
-- **权限分级**：L0 只读 / L1 常规 / L2 危险（需人工确认）
+- **路径沙箱**：阻止操作 `C:\Windows` / `C:\Program Files` 等系统目录 + symlink 逃逸防护
+- **权限分级**：L0 只读 / L1 常规 / L2 危险（需人工确认）；工具调用按 token 的 perm_level 校验
 - **确认机制**：危险操作等待用户审批（默认 60s 超时）
+- **注入防护**：PowerShell / CORS / SSRF / env / JSON 注入均转义或白名单拦截
 - **审计日志**：所有工具调用 / 成功 / 失败落库
-- **网络边界**：默认仅监听本机 + CORS 限 localhost，防局域网未授权操控
+- **网络边界**：默认仅监听 `127.0.0.1` + CORS 精确限 localhost，防局域网未授权操控
+
+---
+
+## 🔑 API 认证
+
+服务默认启用 Token 认证。除 `/health`、`/status`、`/events`（SSE 只读流）外，所有 `/v1` 端点都需要有效 token。
+
+### 生成 token（唯一合法途径）
+
+```powershell
+.\agent.exe token mytoken
+# 输出: agt_xxx...（仅显示一次，请立即保存）
+```
+
+### 调用 API
+
+```powershell
+# 方式一：Authorization Bearer
+curl -H "Authorization: Bearer agt_xxx" http://localhost:18080/v1/tasks
+
+# 方式二：X-API-Token
+curl -H "X-API-Token: agt_xxx" http://localhost:18080/v1/tasks
+```
+
+> ⚠️ 前端首次打开 Settings → 安全 Tab 粘贴 token 保存后，前端请求会自动附带认证头。
 
 ---
 
@@ -440,4 +471,4 @@ Lumen 能从"聊天 Demo"走到"Agent Runtime 原型"，离不开两个开源项
 
 ## 免责声明
 
-本项目为个人学习与研究用途的 Agent Runtime 原型，**未按生产标准做安全加固、负载测试与故障容错**，不建议直接部署到生产或关键环境。默认仅监听本机回路地址；如改变监听范围或对外提供服务，由此产生的服务中断、数据泄露、业务损失或第三方纠纷，由使用者自行承担。所有 Agent 自动执行的操作（尤其是 Shell 命令、文件删除）请在执行前人工确认。
+本项目为个人学习与研究用途的 Agent Runtime 原型，**已实现 Token 认证、权限分级与基础注入防护，但未按生产标准做独立安全审计、负载测试与故障容错**，不建议直接部署到生产或关键环境。默认仅监听本机回路地址；如改变监听范围或对外提供服务，由此产生的服务中断、数据泄露、业务损失或第三方纠纷，由使用者自行承担。所有 Agent 自动执行的操作（尤其是 Shell 命令、文件删除）请在执行前人工确认。
