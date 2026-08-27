@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { api } from '../api/client'
+import { api, fetchJson } from '../api/client'
 import type { Task, Step } from '../api/types'
 import { Button, Badge, Card, Progress, Loading, Empty, Timeline, TimelineItem, Descriptions, DescriptionsItem } from '../components'
 import { useSSE } from '../hooks/useSSE'
@@ -25,8 +25,7 @@ export default function TaskDetail() {
       .catch(e => showToast(e.message, 'error'))
       .finally(() => setLoading(false))
     // 拉取运行轨迹
-    fetch(`/v1/trajectories/${encodeURIComponent(id)}`)
-      .then(r => r.json())
+    fetchJson<{ events: any[] }>(`/trajectories/${encodeURIComponent(id)}`)
       .then(d => setTraj(Array.isArray(d?.events) ? d.events : []))
       .catch(() => setTraj([]))
   }, [id])

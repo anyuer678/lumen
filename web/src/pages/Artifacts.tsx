@@ -1,5 +1,6 @@
 import { useEffect, useCallback, useState } from 'react'
 import { Card, Loading, Empty, Button } from '../components'
+import { fetchJson } from '../api/client'
 
 interface Artifact {
   name: string
@@ -13,8 +14,7 @@ export default function Artifacts() {
   const [loading, setLoading] = useState(true)
 
   const refresh = useCallback(() => {
-    fetch('/v1/artifacts')
-      .then(r => r.json())
+    fetchJson<{ items: Artifact[] }>('/artifacts')
       .then(d => setItems(Array.isArray(d?.items) ? d.items : []))
       .catch(() => setItems([]))
       .finally(() => setLoading(false))

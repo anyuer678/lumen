@@ -205,6 +205,10 @@ export default function Chat() {
         body: JSON.stringify({ content: userMsg.content }),
       })
 
+      if (!response.ok) {
+        throw new Error(`请求失败: ${response.status}`)
+      }
+
       const reader = response.body?.getReader()
       if (!reader) throw new Error('No reader')
 

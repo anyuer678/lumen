@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Card, Loading, Empty, Button } from '../components'
 import { useToast } from '../components/Toast'
+import { fetchJson } from '../api/client'
 
 interface UserProfile {
   id: string
@@ -35,8 +36,7 @@ export default function Profiles() {
 
   const loadProfiles = () => {
     setLoading(true)
-    fetch('/v1/profiles')
-      .then(r => r.json())
+    fetchJson<{ value: UserProfile[] }>('/profiles')
       .then(d => setProfiles(d?.value ?? []))
       .catch(() => setProfiles([]))
       .finally(() => setLoading(false))
@@ -47,8 +47,7 @@ export default function Profiles() {
   const handleReflect = async () => {
     setReflecting(true)
     try {
-      const res = await fetch('/v1/profiles/reflect', { method: 'POST' })
-      const data = await res.json()
+      const data = await fetchJson<{ count: number }>('/profiles/reflect', { method: 'POST' })
       showToast(`反思完成：生成 ${data.count ?? 0} 条画像`, 'success')
       loadProfiles()
     } catch (e) {
