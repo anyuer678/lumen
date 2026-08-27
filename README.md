@@ -1,14 +1,16 @@
 <p align="center">
-  <strong>🦞 Lumen · 流明</strong>
+  <strong>馃 Lumen 路 娴佹槑</strong>
 </p>
 <p align="center">
-  <em>Your personal intelligence layer · 你的个人智能中枢</em>
+  <em>Your personal intelligence layer 路 浣犵殑涓汉鏅鸿兘涓灑</em>
 </p>
 <p align="center">
-  <em>一个 24/7 常驻运行、能操控整台电脑的开源 AI Runtime — 拥有记忆、推理、工具调用与计算机操作能力，成为你数字世界的那一点光</em>
+  <em>涓€涓?24/7 甯搁┗杩愯銆佽兘鎿嶆帶鏁村彴鐢佃剳鐨勫紑婧?AI Runtime 鈥?鎷ユ湁璁板繂銆佹帹鐞嗐€佸伐鍏疯皟鐢ㄤ笌璁＄畻鏈烘搷浣滆兘鍔涳紝鎴愪负浣犳暟瀛椾笘鐣岀殑閭ｄ竴鐐瑰厜</em>
 </p>
 
 <p align="center">
+  <a href="https://github.com/anyuer678/lumen/stargazers"><img alt="Stars" src="https://img.shields.io/github/stars/anyuer678/lumen"></a>
+  <a href="https://github.com/anyuer678/lumen/network/members"><img alt="Forks" src="https://img.shields.io/github/forks/anyuer678/lumen"></a>
   <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/License-MIT-blue.svg"></a>
   <img alt="Go" src="https://img.shields.io/badge/Go-1.26-00ADD8">
   <img alt="Frontend" src="https://img.shields.io/badge/React-18-61dafb">
@@ -19,84 +21,84 @@
 
 ---
 
-> ⚠️ **测试版本警告**：本项目处于早期测试阶段，尽管已实现 Token 认证、权限分级与基础注入防护，**安全性仍未经过完整的独立审计**，当前仅作为测试版本使用。请勿在未加固的情况下公网部署。
+> 鈿狅笍 **娴嬭瘯鐗堟湰璀﹀憡**锛氭湰椤圭洰澶勪簬鏃╂湡娴嬭瘯闃舵锛屽敖绠″凡瀹炵幇 Token 璁よ瘉銆佹潈闄愬垎绾т笌鍩虹娉ㄥ叆闃叉姢锛?*瀹夊叏鎬т粛鏈粡杩囧畬鏁寸殑鐙珛瀹¤**锛屽綋鍓嶄粎浣滀负娴嬭瘯鐗堟湰浣跨敤銆傝鍕垮湪鏈姞鍥虹殑鎯呭喌涓嬪叕缃戦儴缃层€?
 
-跟它说"帮我整理下载目录"，它会自己规划 → 调用工具 → 执行 → 沉淀记忆 → 每天总结。**全本地运行，默认只监听本机。**
+璺熷畠璇?甯垜鏁寸悊涓嬭浇鐩綍"锛屽畠浼氳嚜宸辫鍒?鈫?璋冪敤宸ュ叿 鈫?鎵ц 鈫?娌夋穩璁板繂 鈫?姣忓ぉ鎬荤粨銆?*鍏ㄦ湰鍦拌繍琛岋紝榛樿鍙洃鍚湰鏈恒€?*
 
 ## Why
 
-市面上多数 Agent 停在 *"LLM + Tools"*。Lumen 额外补齐了很多人忽视、却决定"Agent 能否长期可用"的部分：
+甯傞潰涓婂鏁?Agent 鍋滃湪 *"LLM + Tools"*銆侺umen 棰濆琛ラ綈浜嗗緢澶氫汉蹇借銆佸嵈鍐冲畾"Agent 鑳藉惁闀挎湡鍙敤"鐨勯儴鍒嗭細
 
-- **可靠性**：上下文预算、宽容工具调用修复、Checkpoint 断点恢复
-- **可观测**：每阶段轨迹追踪、失败自动分类
-- **记忆**：评分 + 生命周期（防记忆膨胀）+ 用户画像提炼
-- **主动**：事件驱动 + 策略规则，不只是被动回答问题
+- **鍙潬鎬?*锛氫笂涓嬫枃棰勭畻銆佸瀹瑰伐鍏疯皟鐢ㄤ慨澶嶃€丆heckpoint 鏂偣鎭㈠
+- **鍙娴?*锛氭瘡闃舵杞ㄨ抗杩借釜銆佸け璐ヨ嚜鍔ㄥ垎绫?
+- **璁板繂**锛氳瘎鍒?+ 鐢熷懡鍛ㄦ湡锛堥槻璁板繂鑶ㄨ儉锛? 鐢ㄦ埛鐢诲儚鎻愮偧
+- **涓诲姩**锛氫簨浠堕┍鍔?+ 绛栫暐瑙勫垯锛屼笉鍙槸琚姩鍥炵瓟闂
 
-它不是又一个聊天壳，而是一个可以被桌宠、手机 App、CLI 复用的 **Runtime 底座**。
+瀹冧笉鏄張涓€涓亰澶╁３锛岃€屾槸涓€涓彲浠ヨ妗屽疇銆佹墜鏈?App銆丆LI 澶嶇敤鐨?**Runtime 搴曞骇**銆?
 
 ---
 
-## ✨ 核心能力
+## 鉁?鏍稿績鑳藉姏
 
-| 能力 | 说明 |
+| 鑳藉姏 | 璇存槑 |
 |------|------|
-| 🧠 **真实 Agent Loop** | 意图路由 → Planner → 执行 → 评估 → Replanner → 记忆 → 反馈 |
-| 🔀 **多模型路由** | 智谱 / DeepSeek / Ollama / OpenAI 兼容，按复杂度自动选模型 |
-| 🛠️ **9 类工具** | Shell / 文件 / 浏览器 / 系统 / Windows / 子代理 / Computer / 安全 / MCP |
-| 👁️ **多模态 Vision** | 截图 → base64 → 视觉模型 → UI 元素理解 |
-| 🧹 **Tool Repair** | 宽容解析 LLM 输出：JSON 修复、工具名归一化、参数修复 |
-| 📏 **Context Manager** | Token 预算估算 + 滑动窗口，防止上下文泄漏 |
-| 🕵️ **Agent Trace** | 每阶段 span 记录（stage/latency/success），排错神器 |
-| 🧠 **Memory 2.0** | 记忆评分 + 生命周期（active→forgotten）+ 用户画像 |
-| ⚡ **事件驱动** | EventBus + Policy YAML，主动响应文件/任务/系统事件 |
-| 🧩 **工作流 DAG** | 任务编排，支持依赖与并行 |
-| 📊 **Benchmark + 失败分析** | 100 用例 + 自动归类与修复建议 |
-| 🔒 **安全防护** | 命令黑名单 + 沙箱 + 权限分级 + 确认机制 + 默认仅本机监听 |
+| 馃 **鐪熷疄 Agent Loop** | 鎰忓浘璺敱 鈫?Planner 鈫?鎵ц 鈫?璇勪及 鈫?Replanner 鈫?璁板繂 鈫?鍙嶉 |
+| 馃攢 **澶氭ā鍨嬭矾鐢?* | 鏅鸿氨 / DeepSeek / Ollama / OpenAI 鍏煎锛屾寜澶嶆潅搴﹁嚜鍔ㄩ€夋ā鍨?|
+| 馃洜锔?**9 绫诲伐鍏?* | Shell / 鏂囦欢 / 娴忚鍣?/ 绯荤粺 / Windows / 瀛愪唬鐞?/ Computer / 瀹夊叏 / MCP |
+| 馃憗锔?**澶氭ā鎬?Vision** | 鎴浘 鈫?base64 鈫?瑙嗚妯″瀷 鈫?UI 鍏冪礌鐞嗚В |
+| 馃Ч **Tool Repair** | 瀹藉瑙ｆ瀽 LLM 杈撳嚭锛欽SON 淇銆佸伐鍏峰悕褰掍竴鍖栥€佸弬鏁颁慨澶?|
+| 馃搹 **Context Manager** | Token 棰勭畻浼扮畻 + 婊戝姩绐楀彛锛岄槻姝笂涓嬫枃娉勬紡 |
+| 馃暤锔?**Agent Trace** | 姣忛樁娈?span 璁板綍锛坰tage/latency/success锛夛紝鎺掗敊绁炲櫒 |
+| 馃 **Memory 2.0** | 璁板繂璇勫垎 + 鐢熷懡鍛ㄦ湡锛坅ctive鈫抐orgotten锛? 鐢ㄦ埛鐢诲儚 |
+| 鈿?**浜嬩欢椹卞姩** | EventBus + Policy YAML锛屼富鍔ㄥ搷搴旀枃浠?浠诲姟/绯荤粺浜嬩欢 |
+| 馃З **宸ヤ綔娴?DAG** | 浠诲姟缂栨帓锛屾敮鎸佷緷璧栦笌骞惰 |
+| 馃搳 **Benchmark + 澶辫触鍒嗘瀽** | 100 鐢ㄤ緥 + 鑷姩褰掔被涓庝慨澶嶅缓璁?|
+| 馃敀 **瀹夊叏闃叉姢** | 鍛戒护榛戝悕鍗?+ 娌欑 + 鏉冮檺鍒嗙骇 + 纭鏈哄埗 + 榛樿浠呮湰鏈虹洃鍚?|
 
 ---
 
-## 🚀 快速开始
+## 馃殌 蹇€熷紑濮?
 
-### 环境要求
+### 鐜瑕佹眰
 
 - Go 1.26+
-- Node 18+（仅构建前端需要，可跳过）
+- Node 18+锛堜粎鏋勫缓鍓嶇闇€瑕侊紝鍙烦杩囷級
 
-### 克隆 & 运行
+### 鍏嬮殕 & 杩愯
 
 ```sh
 git clone https://github.com/anyuer678/lumen.git
 cd lumen
 go build -o agent.exe ./cmd/agent
-$env:ZHIPU_API_KEY = "sk-你的key"   # Windows PowerShell
+$env:ZHIPU_API_KEY = "sk-浣犵殑key"   # Windows PowerShell
 
-# 首次运行前，生成访问 token（仅显示一次）
+# 棣栨杩愯鍓嶏紝鐢熸垚璁块棶 token锛堜粎鏄剧ず涓€娆★級
 .\agent.exe token mytoken
 
 .\agent.exe
 ```
 
-浏览器打开 **http://localhost:18080**（首页为 Today 助手日报）。
+娴忚鍣ㄦ墦寮€ **http://localhost:18080**锛堥椤典负 Today 鍔╂墜鏃ユ姤锛夈€?
 
-> ⚠️ **安全**：服务已启用 Token 认证。默认仅监听 `127.0.0.1`。如需公网访问，请先配置 token，勿直接改为 `0.0.0.0` 暴露无认证 API。
+> 鈿狅笍 **瀹夊叏**锛氭湇鍔″凡鍚敤 Token 璁よ瘉銆傞粯璁や粎鐩戝惉 `127.0.0.1`銆傚闇€鍏綉璁块棶锛岃鍏堥厤缃?token锛屽嬁鐩存帴鏀逛负 `0.0.0.0` 鏆撮湶鏃犺璇?API銆?
 
-### 配置 LLM
+### 閰嶇疆 LLM
 
-编辑 `conf/config.yaml`：
+缂栬緫 `conf/config.yaml`锛?
 
 ```yaml
 llm:
-  default_provider: zhipu        # 默认模型
+  default_provider: zhipu        # 榛樿妯″瀷
   providers:
     zhipu:
       base_url: https://open.bigmodel.cn/api/paas/v4
-      api_key_env: ZHIPU_API_KEY # 也可直接填 api_key
+      api_key_env: ZHIPU_API_KEY # 涔熷彲鐩存帴濉?api_key
       model: glm-4-flash
     deepseek:
       base_url: https://api.deepseek.com/v1
       api_key_env: DEEPSEEK_API_KEY
       model: deepseek-chat
-    ollama:                      # 本地免费
+    ollama:                      # 鏈湴鍏嶈垂
       base_url: http://127.0.0.1:11434/v1
       model: qwen3:0.6b
     openai:
@@ -106,190 +108,190 @@ llm:
 
 ---
 
-## 🤖 Agent Loop 数据流
+## 馃 Agent Loop 鏁版嵁娴?
 
 ```
-用户输入
-  │
-  ▼
-IntentRouter ── direct_answer / tool_call / remember / kb_query / llm_needed
-  │  (llm_needed)
-  ▼
-Planner ────── LLM 生成步骤计划（注入记忆 + 历史反馈建议）
-  │
-  ▼
-ContextMgr ─── 裁剪历史到 token 预算，防溢出
-  │
-  ▼
-Tool Selection ── 工具选择 + RepairToolArgs 参数修复
-  │
-  ▼
-Permission ──── L1/L2/L3 分级，危险操作需人工确认
-  │
-  ▼
-Execution ───── 执行 + 重试 + 每步 Checkpoint
-  │
-  ├─ 失败 → Replanner 重新规划剩余步骤
-  │
-  ▼
-Memory ──────── 沉淀记忆（评分 + 生命周期）
-  │
-  ▼
-Feedback ────── 记录成功率 / 工具 / 错误类型
-  │
-  ▼
-EventBus ───── 广播 → Proactive 主动恢复 / 前端 SSE 实时推送
-（每阶段 Trace span 落盘，GET /v1/traces/{id} 回放）
+鐢ㄦ埛杈撳叆
+  鈹?
+  鈻?
+IntentRouter 鈹€鈹€ direct_answer / tool_call / remember / kb_query / llm_needed
+  鈹? (llm_needed)
+  鈻?
+Planner 鈹€鈹€鈹€鈹€鈹€鈹€ LLM 鐢熸垚姝ラ璁″垝锛堟敞鍏ヨ蹇?+ 鍘嗗彶鍙嶉寤鸿锛?
+  鈹?
+  鈻?
+ContextMgr 鈹€鈹€鈹€ 瑁佸壀鍘嗗彶鍒?token 棰勭畻锛岄槻婧㈠嚭
+  鈹?
+  鈻?
+Tool Selection 鈹€鈹€ 宸ュ叿閫夋嫨 + RepairToolArgs 鍙傛暟淇
+  鈹?
+  鈻?
+Permission 鈹€鈹€鈹€鈹€ L1/L2/L3 鍒嗙骇锛屽嵄闄╂搷浣滈渶浜哄伐纭
+  鈹?
+  鈻?
+Execution 鈹€鈹€鈹€鈹€鈹€ 鎵ц + 閲嶈瘯 + 姣忔 Checkpoint
+  鈹?
+  鈹溾攢 澶辫触 鈫?Replanner 閲嶆柊瑙勫垝鍓╀綑姝ラ
+  鈹?
+  鈻?
+Memory 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€ 娌夋穩璁板繂锛堣瘎鍒?+ 鐢熷懡鍛ㄦ湡锛?
+  鈹?
+  鈻?
+Feedback 鈹€鈹€鈹€鈹€鈹€鈹€ 璁板綍鎴愬姛鐜?/ 宸ュ叿 / 閿欒绫诲瀷
+  鈹?
+  鈻?
+EventBus 鈹€鈹€鈹€鈹€鈹€ 骞挎挱 鈫?Proactive 涓诲姩鎭㈠ / 鍓嶇 SSE 瀹炴椂鎺ㄩ€?
+锛堟瘡闃舵 Trace span 钀界洏锛孏ET /v1/traces/{id} 鍥炴斁锛?
 ```
 
 ---
 
-## 🏗️ 架构分层（Lumen 视角）
+## 馃彈锔?鏋舵瀯鍒嗗眰锛圠umen 瑙嗚锛?
 
 ```
-                 ✦ Lumen · 流明 ✦
+                 鉁?Lumen 路 娴佹槑 鉁?
                 Your personal intelligence layer
-                ┌────────────────────────────┐
-                │    Memory 记忆             │
-                │  Recall / Reflection / Profile│
-                └──────────────┬─────────────┘
-                ┌──────────────▼─────────────┐
-                │   Reasoning 推理           │
-                │  Planner / Evaluator / Router│
-                └──────────────┬─────────────┘
-                ┌──────────────▼─────────────┐
-                │   Tools 工具               │
-                │  Windows/Browser/Files/Shell│
-                │  Computer(Vision)/MCP      │
-                └──────────────┬─────────────┘
-                ┌──────────────▼─────────────┐
-                │   Action 行动              │
-                │  Computer Use / 桌面操控    │
-                └────────────────────────────┘
+                鈹屸攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹?
+                鈹?   Memory 璁板繂             鈹?
+                鈹? Recall / Reflection / Profile鈹?
+                鈹斺攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹?
+                鈹屸攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈻尖攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹?
+                鈹?  Reasoning 鎺ㄧ悊           鈹?
+                鈹? Planner / Evaluator / Router鈹?
+                鈹斺攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹?
+                鈹屸攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈻尖攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹?
+                鈹?  Tools 宸ュ叿               鈹?
+                鈹? Windows/Browser/Files/Shell鈹?
+                鈹? Computer(Vision)/MCP      鈹?
+                鈹斺攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹?
+                鈹屸攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈻尖攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹?
+                鈹?  Action 琛屽姩              鈹?
+                鈹? Computer Use / 妗岄潰鎿嶆帶    鈹?
+                鈹斺攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹?
 
-    上方所有能力，被一束光（Trace / 记忆评分 / 生命周期 / Policy）
-    持续照亮、记录与守护。
+    涓婃柟鎵€鏈夎兘鍔涳紝琚竴鏉熷厜锛圱race / 璁板繂璇勫垎 / 鐢熷懡鍛ㄦ湡 / Policy锛?
+    鎸佺画鐓т寒銆佽褰曚笌瀹堟姢銆?
 ```
 
-**对应真实分层：**
+**瀵瑰簲鐪熷疄鍒嗗眰锛?*
 
 ```
-接入层  REST API (30+ 端点) │ SSE 事件流 │ Web Dashboard(20 页)
-   │
-Agent Brain  Loop │ Planner │ Evaluator │ Replanner │ Router
-             IntentRouter │ Policy │ Proactive │ Reflection
-   │
-Tools Registry  Shell │ File │ Browser │ System │ Windows
-             Computer(Vision) │ SubAgent │ Safety │ MCP.*
-   │
-Cognition & Data  Memory Score │ Lifecycle │ User Profile │ Knowledge
-             SQLite(15 表) │ Token │ Trajectory │ Checkpoint
+鎺ュ叆灞? REST API (30+ 绔偣) 鈹?SSE 浜嬩欢娴?鈹?Web Dashboard(20 椤?
+   鈹?
+Agent Brain  Loop 鈹?Planner 鈹?Evaluator 鈹?Replanner 鈹?Router
+             IntentRouter 鈹?Policy 鈹?Proactive 鈹?Reflection
+   鈹?
+Tools Registry  Shell 鈹?File 鈹?Browser 鈹?System 鈹?Windows
+             Computer(Vision) 鈹?SubAgent 鈹?Safety 鈹?MCP.*
+   鈹?
+Cognition & Data  Memory Score 鈹?Lifecycle 鈹?User Profile 鈹?Knowledge
+             SQLite(15 琛? 鈹?Token 鈹?Trajectory 鈹?Checkpoint
 ```
 
 ---
 
-## 📁 项目结构
+## 馃搧 椤圭洰缁撴瀯
 
 ```
 agent/
-├── cmd/agent/             # 入口（run / benchmark / install / status）
-├── internal/
-│   ├── agent/             # 核心（28 文件）
-│   │     loop / planner / evaluator / replanner / router
-│   │     tools / trace / policy / proactive / reflection
-│   │     lifecycle / memory_score / failure_analysis / benchmark_v3
-│   ├── api/               # HTTP 路由 + SSE + 静态文件
-│   ├── api/handlers/      # 20+ 端点处理器
-│   ├── auth/              # 权限 / 确认 / 审计
-│   ├── config/            # YAML 配置
-│   ├── contextmgr/        # Token 估算 + 消息滑动窗口
-│   ├── db/                # SQLite WAL 初始化
-│   ├── llm/               # Provider + Router + 多模态 + 成本
-│   ├── memory/            # 记忆存储 + 知识库 + 工作记忆
-│   ├── observability/     # 日志 + 心跳 + 审计
-│   ├── scheduler/         # 定时 + 文件监听 + Webhook
-│   ├── service/           # 服务装配 + Windows Service
-│   ├── task/              # 状态机 + Checkpoint + DAG
-│   ├── toolrepair/        # JSON 宽容修复 + 参数修复
-│   ├── trajectory/        # 轨迹 JSONL 记录
-│   └── vision/            # 视觉分析（截图 → UI 理解）
-├── web/                   # 前端 React + TypeScript（20 页）
-├── conf/config.yaml       # 主配置
-├── conf/policy.yaml       # 策略规则
-└── DESIGN.md              # 设计文档（路线/能力矩阵）
+鈹溾攢鈹€ cmd/agent/             # 鍏ュ彛锛坮un / benchmark / install / status锛?
+鈹溾攢鈹€ internal/
+鈹?  鈹溾攢鈹€ agent/             # 鏍稿績锛?8 鏂囦欢锛?
+鈹?  鈹?    loop / planner / evaluator / replanner / router
+鈹?  鈹?    tools / trace / policy / proactive / reflection
+鈹?  鈹?    lifecycle / memory_score / failure_analysis / benchmark_v3
+鈹?  鈹溾攢鈹€ api/               # HTTP 璺敱 + SSE + 闈欐€佹枃浠?
+鈹?  鈹溾攢鈹€ api/handlers/      # 20+ 绔偣澶勭悊鍣?
+鈹?  鈹溾攢鈹€ auth/              # 鏉冮檺 / 纭 / 瀹¤
+鈹?  鈹溾攢鈹€ config/            # YAML 閰嶇疆
+鈹?  鈹溾攢鈹€ contextmgr/        # Token 浼扮畻 + 娑堟伅婊戝姩绐楀彛
+鈹?  鈹溾攢鈹€ db/                # SQLite WAL 鍒濆鍖?
+鈹?  鈹溾攢鈹€ llm/               # Provider + Router + 澶氭ā鎬?+ 鎴愭湰
+鈹?  鈹溾攢鈹€ memory/            # 璁板繂瀛樺偍 + 鐭ヨ瘑搴?+ 宸ヤ綔璁板繂
+鈹?  鈹溾攢鈹€ observability/     # 鏃ュ織 + 蹇冭烦 + 瀹¤
+鈹?  鈹溾攢鈹€ scheduler/         # 瀹氭椂 + 鏂囦欢鐩戝惉 + Webhook
+鈹?  鈹溾攢鈹€ service/           # 鏈嶅姟瑁呴厤 + Windows Service
+鈹?  鈹溾攢鈹€ task/              # 鐘舵€佹満 + Checkpoint + DAG
+鈹?  鈹溾攢鈹€ toolrepair/        # JSON 瀹藉淇 + 鍙傛暟淇
+鈹?  鈹溾攢鈹€ trajectory/        # 杞ㄨ抗 JSONL 璁板綍
+鈹?  鈹斺攢鈹€ vision/            # 瑙嗚鍒嗘瀽锛堟埅鍥?鈫?UI 鐞嗚В锛?
+鈹溾攢鈹€ web/                   # 鍓嶇 React + TypeScript锛?0 椤碉級
+鈹溾攢鈹€ conf/config.yaml       # 涓婚厤缃?
+鈹溾攢鈹€ conf/policy.yaml       # 绛栫暐瑙勫垯
+鈹斺攢鈹€ DESIGN.md              # 璁捐鏂囨。锛堣矾绾?鑳藉姏鐭╅樀锛?
 ```
 
 ---
 
-## 🛠️ 工具系统
+## 馃洜锔?宸ュ叿绯荤粺
 
-| 工具 | 级别 | 说明 | 主要 action |
+| 宸ュ叿 | 绾у埆 | 璇存槑 | 涓昏 action |
 |------|------|------|------------|
-| `shell.run` | L1 | 命令执行 | 自动识别 cmd / PowerShell |
-| `fs` | L0 | 文件系统 | read / write / list / exists / mkdir / delete / organize |
-| `browser` | L0 | 浏览器 | open / read / search / research / screenshot / click / type |
-| `system` | L1 | 系统信息 | processes / services / network / disk / git_status |
-| `windows` | L1 | Windows 控制 | powershell / env / clipboard / notify / app_list / keyboard |
-| `computer` | L2 | Computer Use | screenshot(+视觉分析) / mouse / keyboard / window |
-| `subagent` | L1 | 子代理 | 并行委派独立子任务（不嵌套）|
-| `safety` | L0 | 安全分类 | 命令只读/读写/破坏性判定 |
-| `mcp.*` | L2 | MCP 插件 | stdio + SSE 双传输，工具独立注册 |
+| `shell.run` | L1 | 鍛戒护鎵ц | 鑷姩璇嗗埆 cmd / PowerShell |
+| `fs` | L0 | 鏂囦欢绯荤粺 | read / write / list / exists / mkdir / delete / organize |
+| `browser` | L0 | 娴忚鍣?| open / read / search / research / screenshot / click / type |
+| `system` | L1 | 绯荤粺淇℃伅 | processes / services / network / disk / git_status |
+| `windows` | L1 | Windows 鎺у埗 | powershell / env / clipboard / notify / app_list / keyboard |
+| `computer` | L2 | Computer Use | screenshot(+瑙嗚鍒嗘瀽) / mouse / keyboard / window |
+| `subagent` | L1 | 瀛愪唬鐞?| 骞惰濮旀淳鐙珛瀛愪换鍔★紙涓嶅祵濂楋級|
+| `safety` | L0 | 瀹夊叏鍒嗙被 | 鍛戒护鍙/璇诲啓/鐮村潖鎬у垽瀹?|
+| `mcp.*` | L2 | MCP 鎻掍欢 | stdio + SSE 鍙屼紶杈擄紝宸ュ叿鐙珛娉ㄥ唽 |
 
 ---
 
-## 📖 API 摘要
+## 馃摉 API 鎽樿
 
-### 系统
-| 端点 | 功能 |
+### 绯荤粺
+| 绔偣 | 鍔熻兘 |
 |------|------|
-| `GET /v1/health` | 健康检查 |
-| `GET /v1/status` | 系统状态（uptime/tasks/provider）|
-| `GET /v1/events` · `GET /v1/sse` | 事件 / 实时事件流 |
+| `GET /v1/health` | 鍋ュ悍妫€鏌?|
+| `GET /v1/status` | 绯荤粺鐘舵€侊紙uptime/tasks/provider锛墊
+| `GET /v1/events` 路 `GET /v1/sse` | 浜嬩欢 / 瀹炴椂浜嬩欢娴?|
 
-### 任务 / 对话
-| 端点 | 功能 |
+### 浠诲姟 / 瀵硅瘽
+| 绔偣 | 鍔熻兘 |
 |------|------|
-| `GET/POST /v1/tasks` `GET /v1/tasks/{id}` | 任务 CRUD |
-| `POST /v1/tasks/{id}/pause·resume·stop·retry` | 任务控制 |
-| `GET /v1/tasks/{id}/steps` | 步骤详情 |
-| `GET/POST /v1/chat` `GET/POST /v1/chat/{id}/messages` | 会话 + SSE 流式对话 |
+| `GET/POST /v1/tasks` `GET /v1/tasks/{id}` | 浠诲姟 CRUD |
+| `POST /v1/tasks/{id}/pause路resume路stop路retry` | 浠诲姟鎺у埗 |
+| `GET /v1/tasks/{id}/steps` | 姝ラ璇︽儏 |
+| `GET/POST /v1/chat` `GET/POST /v1/chat/{id}/messages` | 浼氳瘽 + SSE 娴佸紡瀵硅瘽 |
 
-### 工具 / 知识
-| 端点 | 功能 |
+### 宸ュ叿 / 鐭ヨ瘑
+| 绔偣 | 鍔熻兘 |
 |------|------|
-| `GET /v1/tools` `POST /v1/tools/{name}/run` | 工具列表 / 调用 |
-| `GET/POST /v1/knowledge` | 知识库 |
-| `POST /v1/vision/analyze` · `/locate` | 截图视觉分析 / 元素定位 |
+| `GET /v1/tools` `POST /v1/tools/{name}/run` | 宸ュ叿鍒楄〃 / 璋冪敤 |
+| `GET/POST /v1/knowledge` | 鐭ヨ瘑搴?|
+| `POST /v1/vision/analyze` 路 `/locate` | 鎴浘瑙嗚鍒嗘瀽 / 鍏冪礌瀹氫綅 |
 
-### 记忆 / 画像
-| 端点 | 功能 |
+### 璁板繂 / 鐢诲儚
+| 绔偣 | 鍔熻兘 |
 |------|------|
-| `GET/POST /v1/memories` | 记忆 |
-| `GET/POST /v1/profiles` · `/reflect` | 用户画像 / 触发反思 |
-| `GET /v1/lifecycle/stats` `POST /v1/lifecycle/run` | 记忆生命周期 |
-| `POST /v1/memory-score/recalc` `GET /top` `GET /low` | 记忆评分 |
+| `GET/POST /v1/memories` | 璁板繂 |
+| `GET/POST /v1/profiles` 路 `/reflect` | 鐢ㄦ埛鐢诲儚 / 瑙﹀彂鍙嶆€?|
+| `GET /v1/lifecycle/stats` `POST /v1/lifecycle/run` | 璁板繂鐢熷懡鍛ㄦ湡 |
+| `POST /v1/memory-score/recalc` `GET /top` `GET /low` | 璁板繂璇勫垎 |
 
-### 观测 / 管理
-| 端点 | 功能 |
+### 瑙傛祴 / 绠＄悊
+| 绔偣 | 鍔熻兘 |
 |------|------|
-| `GET /v1/traces/{taskID}` | Agent Trace 回放 |
-| `GET /v1/token-usage` | Token 用量 / 成本 |
-| `GET /v1/audit` | 审计日志 |
-| `GET/POST /v1/jobs` · `POST /v1/webhooks/{jobID}` | 定时 / Webhook |
-| `GET/POST /v1/mcp/servers` | MCP 服务器 |
-| `GET /v1/digest/today` | 每日摘要 |
-| `GET/POST/DELETE /v1/settings` · `/v1/auth/token` | 设置 / API Token |
+| `GET /v1/traces/{taskID}` | Agent Trace 鍥炴斁 |
+| `GET /v1/token-usage` | Token 鐢ㄩ噺 / 鎴愭湰 |
+| `GET /v1/audit` | 瀹¤鏃ュ織 |
+| `GET/POST /v1/jobs` 路 `POST /v1/webhooks/{jobID}` | 瀹氭椂 / Webhook |
+| `GET/POST /v1/mcp/servers` | MCP 鏈嶅姟鍣?|
+| `GET /v1/digest/today` | 姣忔棩鎽樿 |
+| `GET/POST/DELETE /v1/settings` 路 `/v1/auth/token` | 璁剧疆 / API Token |
 
 ---
 
-## 🖥️ 前端页面（20 页）
+## 馃枼锔?鍓嶇椤甸潰锛?0 椤碉級
 
-**普通模式（默认）：**
+**鏅€氭ā寮忥紙榛樿锛夛細**
 ```
-Today(助手日报) / Chat(SSE实时进度) / Tasks / TaskDetail / Memories / Knowledge / Settings
+Today(鍔╂墜鏃ユ姤) / Chat(SSE瀹炴椂杩涘害) / Tasks / TaskDetail / Memories / Knowledge / Settings
 ```
 
-**专家模式**（侧边栏底部一键切换）：
+**涓撳妯″紡**锛堜晶杈规爮搴曢儴涓€閿垏鎹級锛?
 ```
 Overview / Jobs / Confirms / Profiles / Tools / Mcp / Artifacts
 / Events / TokenUsage / Schedule / Audit / Tokens / Logs
@@ -297,78 +299,78 @@ Overview / Jobs / Confirms / Profiles / Tools / Mcp / Artifacts
 
 ---
 
-## 🗄️ 数据库表（15 张）
+## 馃梽锔?鏁版嵁搴撹〃锛?5 寮狅級
 
 ```
-tasks · task_steps · task_plans · task_checkpoints
-chat_sessions · chat_messages
-memories · knowledge · user_profiles
-audit_logs · token_usage · jobs · events
-workflows · feedback
+tasks 路 task_steps 路 task_plans 路 task_checkpoints
+chat_sessions 路 chat_messages
+memories 路 knowledge 路 user_profiles
+audit_logs 路 token_usage 路 jobs 路 events
+workflows 路 feedback
 ```
 
-记忆表额外支持：`lifecycle`(active/consolidated/archived/forgotten)、`access_count`、`last_accessed`、`quality_score`。
+璁板繂琛ㄩ澶栨敮鎸侊細`lifecycle`(active/consolidated/archived/forgotten)銆乣access_count`銆乣last_accessed`銆乣quality_score`銆?
 
 ---
 
-## 📊 Benchmark
+## 馃搳 Benchmark
 
 ```
-Agent Benchmark v3 — 100 用例
-  ├─ A. 日常助手:   文件/系统/浏览器/记忆 40 类
-  ├─ B. 基础能力:   工具选择/上下文/规划    30 类
-  ├─ C. 极端情况:   输入边界/工具边界       20 类
-  └─ D. 安全:       危险命令拦截            10 类
+Agent Benchmark v3 鈥?100 鐢ㄤ緥
+  鈹溾攢 A. 鏃ュ父鍔╂墜:   鏂囦欢/绯荤粺/娴忚鍣?璁板繂 40 绫?
+  鈹溾攢 B. 鍩虹鑳藉姏:   宸ュ叿閫夋嫨/涓婁笅鏂?瑙勫垝    30 绫?
+  鈹溾攢 C. 鏋佺鎯呭喌:   杈撳叆杈圭晫/宸ュ叿杈圭晫       20 绫?
+  鈹斺攢 D. 瀹夊叏:       鍗遍櫓鍛戒护鎷︽埅            10 绫?
 
-Simple Mode:  71%（无 LLM，规则路由 — 诚实上限，多步骤需 LLM）
-LLM Mode:     ~84%（智谱 glm-4-flash + 完整 Loop）
-Safety:       100%（10 种危险命令全拦截）
+Simple Mode:  71%锛堟棤 LLM锛岃鍒欒矾鐢?鈥?璇氬疄涓婇檺锛屽姝ラ闇€ LLM锛?
+LLM Mode:     ~84%锛堟櫤璋?glm-4-flash + 瀹屾暣 Loop锛?
+Safety:       100%锛?0 绉嶅嵄闄╁懡浠ゅ叏鎷︽埅锛?
 ```
 
 ```sh
-./agent.exe benchmark            # v3 Simple（默认）
+./agent.exe benchmark            # v3 Simple锛堥粯璁わ級
 ./agent.exe benchmark --llm      # v3 LLM
-./agent.exe benchmark --v2       # 旧版
+./agent.exe benchmark --v2       # 鏃х増
 ```
 
-输出 `BENCHMARK_V3_REPORT.md` + `.json`，含**失败分类**（planner/tool_exec/param/timeout/network...）与**修复建议**。
+杈撳嚭 `BENCHMARK_V3_REPORT.md` + `.json`锛屽惈**澶辫触鍒嗙被**锛坧lanner/tool_exec/param/timeout/network...锛変笌**淇寤鸿**銆?
 
 ---
 
-## 🎯 能力矩阵（18 项）
+## 馃幆 鑳藉姏鐭╅樀锛?8 椤癸級
 
 ```
-✅ 100%  LLM / ToolSchema / ContextManager / Checkpoint / 模型路由 / 成本系统
-✅ 90%+  Tool标准化 / Benchmark / Windows控制 / 浏览器 / 多模态 / 沙箱 / Feedback
-✅ 80%   Workflow/DAG
-✅ 70%+  并发任务 / MCP 生态
-✅ 60%+  多Agent / 主动Agent
+鉁?100%  LLM / ToolSchema / ContextManager / Checkpoint / 妯″瀷璺敱 / 鎴愭湰绯荤粺
+鉁?90%+  Tool鏍囧噯鍖?/ Benchmark / Windows鎺у埗 / 娴忚鍣?/ 澶氭ā鎬?/ 娌欑 / Feedback
+鉁?80%   Workflow/DAG
+鉁?70%+  骞跺彂浠诲姟 / MCP 鐢熸€?
+鉁?60%+  澶欰gent / 涓诲姩Agent
 ```
 
-**全部 18 项 ≥60%**
+**鍏ㄩ儴 18 椤?鈮?0%**
 
 ---
 
-## 🧭 使用场景
+## 馃Л 浣跨敤鍦烘櫙
 
-Lumen 被设计为可支撑三类真实场景（Dogfood 目标）：
+Lumen 琚璁′负鍙敮鎾戜笁绫荤湡瀹炲満鏅紙Dogfood 鐩爣锛夛細
 
-| 场景 | 流程 |
+| 鍦烘櫙 | 娴佺▼ |
 |------|------|
-| 📚 **学习助手** | PDF → 整理知识点 → 生成笔记 → 进知识库 → 晚上总结 |
-| 🛠️ **项目助手** | git diff → 总结修改 → 生成 changelog → 更新项目记忆 |
-| 📁 **文件管家** | Downloads → 分类 → 重命名 → 归档 → 知识库 |
+| 馃摎 **瀛︿範鍔╂墜** | PDF 鈫?鏁寸悊鐭ヨ瘑鐐?鈫?鐢熸垚绗旇 鈫?杩涚煡璇嗗簱 鈫?鏅氫笂鎬荤粨 |
+| 馃洜锔?**椤圭洰鍔╂墜** | git diff 鈫?鎬荤粨淇敼 鈫?鐢熸垚 changelog 鈫?鏇存柊椤圭洰璁板繂 |
+| 馃搧 **鏂囦欢绠″** | Downloads 鈫?鍒嗙被 鈫?閲嶅懡鍚?鈫?褰掓。 鈫?鐭ヨ瘑搴?|
 
 ---
 
-## ⚙️ 策略配置（conf/policy.yaml）
+## 鈿欙笍 绛栫暐閰嶇疆锛坈onf/policy.yaml锛?
 
 ```yaml
 policies:
   - name: file_organize
-    event_type: file.created      # 文件创建事件
+    event_type: file.created      # 鏂囦欢鍒涘缓浜嬩欢
     enabled: true
-    quiet_hours: { start: 23, end: 8 }   # 静默时段不执行
+    quiet_hours: { start: 23, end: 8 }   # 闈欓粯鏃舵涓嶆墽琛?
     max_per_hour: 5
     keywords: [".pdf", ".docx", ".zip"]
     action:
@@ -379,96 +381,96 @@ policies:
 
 ---
 
-## 🔒 安全设计
+## 馃敀 瀹夊叏璁捐
 
-- **Token 认证**：所有 `/v1` 端点（除 /health、/status、/events）强制 Bearer token，未认证 API 调用直接 401
-- **命令黑名单**：format / del /s / rm -rf / diskpart / shutdown / reg delete 等 18+ 类危险命令默认拒绝
-- **路径沙箱**：阻止操作 `C:\Windows` / `C:\Program Files` 等系统目录 + symlink 逃逸防护
-- **权限分级**：L0 只读 / L1 常规 / L2 危险（需人工确认）；工具调用按 token 的 perm_level 校验
-- **确认机制**：危险操作等待用户审批（默认 60s 超时）
-- **注入防护**：PowerShell / CORS / SSRF / env / JSON 注入均转义或白名单拦截
-- **审计日志**：所有工具调用 / 成功 / 失败落库
-- **网络边界**：默认仅监听 `127.0.0.1` + CORS 精确限 localhost，防局域网未授权操控
+- **Token 璁よ瘉**锛氭墍鏈?`/v1` 绔偣锛堥櫎 /health銆?status銆?events锛夊己鍒?Bearer token锛屾湭璁よ瘉 API 璋冪敤鐩存帴 401
+- **鍛戒护榛戝悕鍗?*锛歠ormat / del /s / rm -rf / diskpart / shutdown / reg delete 绛?18+ 绫诲嵄闄╁懡浠ら粯璁ゆ嫆缁?
+- **璺緞娌欑**锛氶樆姝㈡搷浣?`C:\Windows` / `C:\Program Files` 绛夌郴缁熺洰褰?+ symlink 閫冮€搁槻鎶?
+- **鏉冮檺鍒嗙骇**锛歀0 鍙 / L1 甯歌 / L2 鍗遍櫓锛堥渶浜哄伐纭锛夛紱宸ュ叿璋冪敤鎸?token 鐨?perm_level 鏍￠獙
+- **纭鏈哄埗**锛氬嵄闄╂搷浣滅瓑寰呯敤鎴峰鎵癸紙榛樿 60s 瓒呮椂锛?
+- **娉ㄥ叆闃叉姢**锛歅owerShell / CORS / SSRF / env / JSON 娉ㄥ叆鍧囪浆涔夋垨鐧藉悕鍗曟嫤鎴?
+- **瀹¤鏃ュ織**锛氭墍鏈夊伐鍏疯皟鐢?/ 鎴愬姛 / 澶辫触钀藉簱
+- **缃戠粶杈圭晫**锛氶粯璁や粎鐩戝惉 `127.0.0.1` + CORS 绮剧‘闄?localhost锛岄槻灞€鍩熺綉鏈巿鏉冩搷鎺?
 
 ---
 
-## 🔑 API 认证
+## 馃攽 API 璁よ瘉
 
-服务默认启用 Token 认证。除 `/health`、`/status`、`/events`（SSE 只读流）外，所有 `/v1` 端点都需要有效 token。
+鏈嶅姟榛樿鍚敤 Token 璁よ瘉銆傞櫎 `/health`銆乣/status`銆乣/events`锛圫SE 鍙娴侊級澶栵紝鎵€鏈?`/v1` 绔偣閮介渶瑕佹湁鏁?token銆?
 
-### 生成 token（唯一合法途径）
+### 鐢熸垚 token锛堝敮涓€鍚堟硶閫斿緞锛?
 
 ```powershell
 .\agent.exe token mytoken
-# 输出: agt_xxx...（仅显示一次，请立即保存）
+# 杈撳嚭: agt_xxx...锛堜粎鏄剧ず涓€娆★紝璇风珛鍗充繚瀛橈級
 ```
 
-### 调用 API
+### 璋冪敤 API
 
 ```powershell
-# 方式一：Authorization Bearer
+# 鏂瑰紡涓€锛欰uthorization Bearer
 curl -H "Authorization: Bearer agt_xxx" http://localhost:18080/v1/tasks
 
-# 方式二：X-API-Token
+# 鏂瑰紡浜岋細X-API-Token
 curl -H "X-API-Token: agt_xxx" http://localhost:18080/v1/tasks
 ```
 
-> ⚠️ 前端首次打开 Settings → 安全 Tab 粘贴 token 保存后，前端请求会自动附带认证头。
+> 鈿狅笍 鍓嶇棣栨鎵撳紑 Settings 鈫?瀹夊叏 Tab 绮樿创 token 淇濆瓨鍚庯紝鍓嶇璇锋眰浼氳嚜鍔ㄩ檮甯﹁璇佸ご銆?
 
 ---
 
-## 💻 开发
+## 馃捇 寮€鍙?
 
 ```sh
-go build ./...        # 编译
-go vet ./...          # 静态检查
-go test ./internal/... -count=1   # 全部测试
-.\agent.exe benchmark --llm       # 跑 Benchmark
+go build ./...        # 缂栬瘧
+go vet ./...          # 闈欐€佹鏌?
+go test ./internal/... -count=1   # 鍏ㄩ儴娴嬭瘯
+.\agent.exe benchmark --llm       # 璺?Benchmark
 ```
 
-**前端：**
+**鍓嶇锛?*
 ```sh
 cd web
 npm install
-npx tsc --noEmit      # 类型检查
-npx vite build        # 构建到 internal/api/static
+npx tsc --noEmit      # 绫诲瀷妫€鏌?
+npx vite build        # 鏋勫缓鍒?internal/api/static
 ```
 
 ---
 
-## 🗺️ Roadmap
+## 馃椇锔?Roadmap
 
 ```
-过去（OpenClaw 引擎阶段）
-v0.8  能力建设（Benchmark v2 / Context / ToolRepair / Vision / 前端闭环）
-v0.9  工程化（Benchmark v3 100 用例 / Trace / 失败分析 / 稳定化）
-v0.9.5 Real Usage Validation（Memory Score / Today 助手日报 / 两层模式）
-════════════════════════════════════════════════════════
-现在开始 —— Lumen · 你的个人智能中枢
-Lumen v0.1 Alpha  个人 Agent Runtime          ← 当前
-Lumen v0.5        Personal Assistant（记忆/画像/主动陪伴）
-Lumen v1.0        Personal AI OS（插件生态 / 多设备）
-════════════════════════════════════════════════════════
-下一步：Dogfood 7 天真实使用（学习/项目/文件三场景），验证"真的能替你做事"
+杩囧幓锛圤penClaw 寮曟搸闃舵锛?
+v0.8  鑳藉姏寤鸿锛圔enchmark v2 / Context / ToolRepair / Vision / 鍓嶇闂幆锛?
+v0.9  宸ョ▼鍖栵紙Benchmark v3 100 鐢ㄤ緥 / Trace / 澶辫触鍒嗘瀽 / 绋冲畾鍖栵級
+v0.9.5 Real Usage Validation锛圡emory Score / Today 鍔╂墜鏃ユ姤 / 涓ゅ眰妯″紡锛?
+鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲
+鐜板湪寮€濮?鈥斺€?Lumen 路 浣犵殑涓汉鏅鸿兘涓灑
+Lumen v0.1 Alpha  涓汉 Agent Runtime          鈫?褰撳墠
+Lumen v0.5        Personal Assistant锛堣蹇?鐢诲儚/涓诲姩闄即锛?
+Lumen v1.0        Personal AI OS锛堟彃浠剁敓鎬?/ 澶氳澶囷級
+鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲
+涓嬩竴姝ワ細Dogfood 7 澶╃湡瀹炰娇鐢紙瀛︿範/椤圭洰/鏂囦欢涓夊満鏅級锛岄獙璇?鐪熺殑鑳芥浛浣犲仛浜?
 ```
 
 ---
 
-## 💡 灵感来源
+## 馃挕 鐏垫劅鏉ユ簮
 
-Lumen 能从"聊天 Demo"走到"Agent Runtime 原型"，离不开两个开源项目**非常先进的设计思想**的启发。在此特别致以敬意：
+Lumen 鑳戒粠"鑱婂ぉ Demo"璧板埌"Agent Runtime 鍘熷瀷"锛岀涓嶅紑涓や釜寮€婧愰」鐩?*闈炲父鍏堣繘鐨勮璁℃€濇兂**鐨勫惎鍙戙€傚湪姝ょ壒鍒嚧浠ユ暚鎰忥細
 
-- **[Reasonix](https://github.com/esengine/DeepSeek-Reasonix)**：其**子代理委派**让复杂任务能拆解并行、**轨迹回放**让 Agent 的每一次决策都能被离线复盘、**有界独立调用（boundedllm）**把复核隔离出主会话、**命令安全分解**把危险操作挡在门外——这些工程范式让 Agent 从"能跑"走向"能信"。
-- **[OpenClaw](https://github.com/openclaw/openclaw)**：其**上下文分层管理（context-engine）**解决了 Agent 最致命的上下文膨胀、**宽容工具调用修复（tool-call-repair)** 让模型哪怕不按协议输出也能被兜底、**视觉理解（media-understanding）**打通了"看见屏幕"的能力——这些设计抓住了真实 Agent 的核心痛点。
+- **[Reasonix](https://github.com/esengine/DeepSeek-Reasonix)**锛氬叾**瀛愪唬鐞嗗娲?*璁╁鏉備换鍔¤兘鎷嗚В骞惰銆?*杞ㄨ抗鍥炴斁**璁?Agent 鐨勬瘡涓€娆″喅绛栭兘鑳借绂荤嚎澶嶇洏銆?*鏈夌晫鐙珛璋冪敤锛坆oundedllm锛?*鎶婂鏍搁殧绂诲嚭涓讳細璇濄€?*鍛戒护瀹夊叏鍒嗚В**鎶婂嵄闄╂搷浣滄尅鍦ㄩ棬澶栤€斺€旇繖浜涘伐绋嬭寖寮忚 Agent 浠?鑳借窇"璧板悜"鑳戒俊"銆?
+- **[OpenClaw](https://github.com/openclaw/openclaw)**锛氬叾**涓婁笅鏂囧垎灞傜鐞嗭紙context-engine锛?*瑙ｅ喅浜?Agent 鏈€鑷村懡鐨勪笂涓嬫枃鑶ㄨ儉銆?*瀹藉宸ュ叿璋冪敤淇锛坱ool-call-repair)** 璁╂ā鍨嬪摢鎬曚笉鎸夊崗璁緭鍑轰篃鑳借鍏滃簳銆?*瑙嗚鐞嗚В锛坢edia-understanding锛?*鎵撻€氫簡"鐪嬭灞忓箷"鐨勮兘鍔涒€斺€旇繖浜涜璁℃姄浣忎簡鐪熷疄 Agent 鐨勬牳蹇冪棝鐐广€?
 
-**必须说明**：Lumen 借鉴的是上述项目的**设计思想与工程范式**，不是它们的代码。我们的实现是**独立重构**——用 Go 重新落地（例如上下文本复用其"分层预算"的思路、但结构独立设计；宽容解析参考其"不因模型输出不规范而整体失败"的理念、但解析器完全自研；并且 OpenClaw 源码是 TypeScript，我们也不可能照抄）。代码注释中已逐一标注"灵感来自 xxx"，尊重原始出处。若你在代码中发现任何与上述项目逐行一致的片段，请反馈，我们会立即修正。
+**蹇呴』璇存槑**锛歀umen 鍊熼壌鐨勬槸涓婅堪椤圭洰鐨?*璁捐鎬濇兂涓庡伐绋嬭寖寮?*锛屼笉鏄畠浠殑浠ｇ爜銆傛垜浠殑瀹炵幇鏄?*鐙珛閲嶆瀯**鈥斺€旂敤 Go 閲嶆柊钀藉湴锛堜緥濡備笂涓嬫枃鏈鐢ㄥ叾"鍒嗗眰棰勭畻"鐨勬€濊矾銆佷絾缁撴瀯鐙珛璁捐锛涘瀹硅В鏋愬弬鑰冨叾"涓嶅洜妯″瀷杈撳嚭涓嶈鑼冭€屾暣浣撳け璐?鐨勭悊蹇点€佷絾瑙ｆ瀽鍣ㄥ畬鍏ㄨ嚜鐮旓紱骞朵笖 OpenClaw 婧愮爜鏄?TypeScript锛屾垜浠篃涓嶅彲鑳界収鎶勶級銆備唬鐮佹敞閲婁腑宸查€愪竴鏍囨敞"鐏垫劅鏉ヨ嚜 xxx"锛屽皧閲嶅師濮嬪嚭澶勩€傝嫢浣犲湪浠ｇ爜涓彂鐜颁换浣曚笌涓婅堪椤圭洰閫愯涓€鑷寸殑鐗囨锛岃鍙嶉锛屾垜浠細绔嬪嵆淇銆?
 
 ## License
 
-[MIT](LICENSE) — Copyright © 2026 Lumen (流明)
+[MIT](LICENSE) 鈥?Copyright 漏 2026 Lumen (娴佹槑)
 
 ---
 
-## 免责声明
+## 鍏嶈矗澹版槑
 
-本项目为个人学习与研究用途的 Agent Runtime 原型，**已实现 Token 认证、权限分级与基础注入防护，但未按生产标准做独立安全审计、负载测试与故障容错**，不建议直接部署到生产或关键环境。默认仅监听本机回路地址；如改变监听范围或对外提供服务，由此产生的服务中断、数据泄露、业务损失或第三方纠纷，由使用者自行承担。所有 Agent 自动执行的操作（尤其是 Shell 命令、文件删除）请在执行前人工确认。
+鏈」鐩负涓汉瀛︿範涓庣爺绌剁敤閫旂殑 Agent Runtime 鍘熷瀷锛?*宸插疄鐜?Token 璁よ瘉銆佹潈闄愬垎绾т笌鍩虹娉ㄥ叆闃叉姢锛屼絾鏈寜鐢熶骇鏍囧噯鍋氱嫭绔嬪畨鍏ㄥ璁°€佽礋杞芥祴璇曚笌鏁呴殰瀹归敊**锛屼笉寤鸿鐩存帴閮ㄧ讲鍒扮敓浜ф垨鍏抽敭鐜銆傞粯璁や粎鐩戝惉鏈満鍥炶矾鍦板潃锛涘鏀瑰彉鐩戝惉鑼冨洿鎴栧澶栨彁渚涙湇鍔★紝鐢辨浜х敓鐨勬湇鍔′腑鏂€佹暟鎹硠闇层€佷笟鍔℃崯澶辨垨绗笁鏂圭籂绾凤紝鐢变娇鐢ㄨ€呰嚜琛屾壙鎷呫€傛墍鏈?Agent 鑷姩鎵ц鐨勬搷浣滐紙灏ゅ叾鏄?Shell 鍛戒护銆佹枃浠跺垹闄わ級璇峰湪鎵ц鍓嶄汉宸ョ‘璁ゃ€?
