@@ -45,7 +45,43 @@ func extractInnerCommand(cmd string) string {
 }
 
 // ClassifyCommand 判断命令是只读、读写还是破坏性。
-func ClassifyCommand(command string) CommandClass {
+// splitShellOperators splits command by shell operators.
+// Supports: &&, ||, |, ;, &
+func splitShellOperators(cmd string) []string {
+	var segments []string
+	current := strings.Builder{}
+
+	i := 0
+	for i < len(cmd) {
+		if i+1 < len(cmd) {
+			twoChar := string(cmd[i]) + string(cmd[i+1])
+			if twoChar == "&&" || twoChar == "||" {
+				if current.Len() > 0 {
+					segments = append(segments, strings.TrimSpace(current.String()))
+					current.Reset()
+				}
+				i += 2
+				continue
+			}
+		}
+		if cmd[i] == '|' || cmd[i] == ';' || cmd[i] == '&' {
+			if current.Len() > 0 {
+				segments = append(segments, strings.TrimSpace(current.String()))
+				current.Reset()
+			}
+			i++
+			continue
+		}
+		current.WriteByte(cmd[i])
+		i++
+	}
+	if current.Len() > 0 {
+		segments = append(segments, strings.TrimSpace(current.String()))
+	}
+	return segments
+}
+
+func classifySingleCommand(command string) CommandClass {
 	cmd := strings.TrimSpace(command)
 	if cmd == "" {
 		return CommandUnknown
@@ -66,6 +102,22 @@ func ClassifyCommand(command string) CommandClass {
 		}
 	}
 	return CommandReadWrite
+}
+// ClassifyCommand classifies command as read-only, read-write, or destructive.
+// Splits by shell operators and classifies each segment; worst segment wins.
+func ClassifyCommand(command string) CommandClass {
+	segments := splitShellOperators(command)
+	if len(segments) == 0 {
+		return CommandUnknown
+	}
+	worst := CommandReadOnly
+	for _, seg := range segments {
+		cls := classifySingleCommand(seg)
+		if cls > worst {
+			worst = cls
+		}
+	}
+	return worst
 }
 
 // IsPathEscaped 检测目标路径是否逃逸出根目录（沙箱）。
