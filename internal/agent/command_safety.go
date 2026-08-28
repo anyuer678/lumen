@@ -5,85 +5,113 @@ import (
 	"strings"
 )
 
-// CommandClass 命令分类，� �� � � ��是否需要额外确认。
- // � �� ��来自  Reasonix internal /permissi on/bash_d ecompose� ��
+// CommandClass 命令分类，决定是否需要额外确认。
 type CommandClass int
 
 const (
-	CommandUnk nown C ommandClass  = iota
-	Co mmandReadOnly               // 只 读，可自 动放行
-	Command  ReadWrite             // � �写，正常� ��行 
-	Comman dDestructive           // 破� ��性（ 删除 /格式化/关机� ��� �，需 L2 确� � 
+	CommandUnknown     CommandClass = iota
+	CommandReadOnly                   // 只读，可自动放行
+	CommandReadWrite                  // 读写，正常执行
+	CommandDestructive                // 破坏性（删除/格式化/关机等），需 L2 确认
 )
 
-// classPatterns � � �命令动词映 射到 安全分类。
-v ar re adOnlyVerbs = [ ]string{ 
-	"ls", "dir",  "cat",  "type", "more ", "less",  "echo", "p wd", "whe re", "git sta tus",
-	"git  diff", " git log", " get-process" , "get-service ", "g et-item", "ge t-childitem ",
-	"tasklist",  "p ing", "nslookup ", "netsta t", "ipconfig", "s  ysteminfo", "who ami",
-	"f indstr", "select- str ing",
+// readOnlyVerbs 命令动词映射到安全分类。
+var readOnlyVerbs = []string{
+	"ls", "dir", "cat", "type", "more", "less", "echo", "pwd", "where", "git status",
+	"git diff", "git log", "get-process", "get-service", "get-item", "get-childitem",
+	"tasklist", "ping", "nslookup", "netstat", "ipconfig", "systeminfo", "whoami",
+	"findstr", "select-string",
 }
 
-var de structiv eVerbs = []strin g{
-	"f ormat ", "del  ", "rem ove-item", "rmd ir", "rd  ",
-	"diskpart ", "sh utdown", "rest art-computer ", "reg dele te",  "net user", " net localgroup" ,
-	"taskkil l /f ", "stop-pro cess -force", "rm  -rf", "mkf s",  "dd ",
-	"b cdedit", "wmic proces s call te rm inate", "i isreset",
+var destructiveVerbs = []string{
+	"format ", "del ", "remove-item", "rmdir", "rd ",
+	"diskpart ", "shutdown", "restart-computer ", "reg delete", "net user", "net localgroup",
+	"taskkill /f", "stop-process -force", "rm -rf", "rm -r ", "rm -f ", "rm ",
+	"mkfs", "dd ", "bcdedit", "wmic process call terminate", "iisreset",
 }
 
-// Classify Command  � ��� ��命令是只读、读写还是� ��  � ��坏性。
-func ClassifyCommand(command st r i  ng) CommandClass {
-	cmd := strings.ToLowe  r(strings.TrimSpace(command))
-	if cmd == ""   {
-		 r eturn CommandUnknown
-	}
-	for _, v :=   range  de structiveVerbs {
-		if strings.HasPr  efix(cm d,  v) {
-			return CommandDestructiv e 
+// shellWrapperPrefixes 需要提取内部命令再分类的 shell 包装器。
+var shellWrapperPrefixes = []string{"cmd /c ", "cmd /k ", "powershell -command ", "powershell -c ", "sh -c ", "bash -c ", "zsh -c "}
+
+// extractInnerCommand 如果命令被 shell 包装器包裹，提取内部实际命令。
+func extractInnerCommand(cmd string) string {
+	lower := strings.ToLower(cmd)
+	for _, prefix := range shellWrapperPrefixes {
+		if strings.HasPrefix(lower, prefix) {
+			return strings.TrimSpace(cmd[len(prefix):])
 		}
 	}
- 	for  _, v := range readOnlyVerbs  {
- 		if stri ngs.H asPrefix(cmd, v) {
-			retu rn  CommandRea dOnly
- 		}
-	}
-	return CommandR eadW rite
+	return cmd
 }
 
-//  IsPathE scaped 检测目标� ��径 是否逃逸 出根� �录（沙箱� ��。
- func IsPathEs caped(root,  target stri ng) boo l {
-	if root = = "" {
-		retu rn false 
+// ClassifyCommand 判断命令是只读、读写还是破坏性。
+func ClassifyCommand(command string) CommandClass {
+	cmd := strings.TrimSpace(command)
+	if cmd == "" {
+		return CommandUnknown
 	}
-	tar get = filepath. Clean(target)
- 	if f ilepath.IsAbs(target) ||  strings.HasPrefix (target, " .."+string(filepath.Separator)) |  | target = = ".." {
-		return  true
+	// 先拆开 shell 包装器
+	inner := extractInnerCommand(cmd)
+	lower := strings.ToLower(inner)
+	// 检查破坏性
+	for _, v := range destructiveVerbs {
+		if strings.HasPrefix(lower, v) {
+			return CommandDestructive
+		}
 	}
-	retur n f alse
+	// 检查只读
+	for _, v := range readOnlyVerbs {
+		if strings.HasPrefix(lower, v) {
+			return CommandReadOnly
+		}
+	}
+	return CommandReadWrite
 }
 
- // IsSensitivePath  判断路径 是否 命中 敏感位置（系� �目录 等）。
-fu n c IsSensitivePath(target  stri ng) bool {
-	low   := strings.ToLower(file pat h.Clean(target)) 
-	 for _, s := range []str i ng{`c:\windows`,  `c:\ program files`, `c:\sy  stem32`, `/etc`,  `/usr` , `/bin`} {
-		if st ri ngs.HasPrefix(lo w, strin gs.ToLower(s)) { 
-			 return true
-		} 
+// IsPathEscaped 检测目标路径是否逃逸出根目录（沙箱）。
+func IsPathEscaped(root, target string) bool {
+	if root == "" {
+		return false
 	}
-	retur n false
+	// 解析为绝对路径再比对，防止 root 参数被忽略
+	absRoot, err := filepath.Abs(root)
+	if err != nil {
+		return true // 无法解析 root，保守拒绝
+	}
+	// target 如果是相对路径，基于 root 解析
+	absTarget, err := filepath.Abs(filepath.Join(root, target))
+	if err != nil {
+		return true
+	}
+	// 清理后检查 target 是否仍在 root 下
+	rel, err := filepath.Rel(absRoot, absTarget)
+	if err != nil || strings.HasPrefix(rel, "..") {
+		return true
+	}
+	return false
 }
 
-//  Comma ndClassLabel � ��回命令� � ��全分类� ��可� �标签。
-fu nc CommandCla ssLabel(c C ommand Class) strin g {
+// IsSensitivePath 判断路径是否命中敏感位置（系统目录等）。
+func IsSensitivePath(target string) bool {
+	low := strings.ToLower(filepath.Clean(target))
+	for _, s := range []string{`c:\windows`, `c:\program files`, `c:\system32`, `/etc`, `/usr`, `/bin`} {
+		if strings.HasPrefix(low, strings.ToLower(s)) {
+			return true
+		}
+	}
+	return false
+}
+
+// CommandClassLabel 返回命令安全分类的可读标签。
+func CommandClassLabel(c CommandClass) string {
 	switch c {
- 	case Comm andRe adOnly:
-		r eturn "只读"
-	cas e Command Read Write:
-		r eturn "读写"
-	case C ommandDe str uctive:
-	 	return "破坏性"
-	defa ult:
-		 re turn "� �知"
+	case CommandReadOnly:
+		return "只读"
+	case CommandReadWrite:
+		return "读写"
+	case CommandDestructive:
+		return "破坏性"
+	default:
+		return "未知"
 	}
 }
-    
