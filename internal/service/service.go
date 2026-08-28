@@ -1,350 +1,351 @@
-﻿package service
+package service
 
 import (
 	"context"
-	"dat  abase/sql"
+	"database/sql"
 	"fmt"
 	"net/http"
 	"os"
-	"os/sig n al"
+	"os/signal"
 	"path/filepath"
 	"syscall"
 	"time"
 
-	" gi thub.com/kardianos/service"
-	"go.uber.org/ zap "
+	"github.com/kardianos/service"
+	"go.uber.org/zap"
 
 	"agent/internal/api"
-	"agent/internal /age nt"
+	"agent/internal/agent"
 	"agent/internal/config"
-	"agent/int ernal /db"
+	"agent/internal/db"
 	"agent/internal/llm"
-	"agent/inte rnal/m emory"
-	"agent/internal/observability" 
-	"agen t/internal/scheduler"
-	"agent/interna l/task"
- 	"agent/internal/vision"
+	"agent/internal/memory"
+	"agent/internal/observability"
+	"agent/internal/scheduler"
+	"agent/internal/task"
+	"agent/internal/vision"
 )
 
-var logg er *zap.L ogger
+var logger *zap.Logger
 
-// trajRecorders 全局轨� �记录管 理器（按 task 缓存 recorder� ��
-var traj Recorders *trajManager
+// trajRecorders 全局轨迹记录管理器（按 task 缓存 recorder）
+var trajRecorders *trajManager
 
-// eventP ublisherAdap ter 适配 SSE 广播器
-type ev entPublisherA dapter struct {
-	broadcaster *a pi.EventBroadc aster
+// eventPublisherAdapter 适配 SSE 广播器
+type eventPublisherAdapter struct {
+	broadcaster *api.EventBroadcaster
 }
 
-func (a *eventPublish erAdapter) Publ ish(eventType string, data in terface{}) {
-	a. broadcaster.Publish(api.Even t{Type: eventType , Data: data})
+func (a *eventPublisherAdapter) Publish(eventType string, data interface{}) {
+	a.broadcaster.Publish(api.Event{Type: eventType, Data: data})
 }
 
-// taskFa ctoryAdapter 适� � TaskManager 为 sched uler.TaskFactory
-type  taskFactoryAdapter str uct {
-	manager *task.Ma nager
+// taskFactoryAdapter 适配 TaskManager 为 scheduler.TaskFactory
+type taskFactoryAdapter struct {
+	manager *task.Manager
 }
 
-func (a *tas kFactoryAdapter) CreateT ask(goal string, pri ority int) error {
-	retur n a.manager.CreateT askFromScheduler(goal, pri ority)
+func (a *taskFactoryAdapter) CreateTask(goal string, priority int) error {
+	return a.manager.CreateTaskFromScheduler(goal, priority)
 }
 
-// creat eLLMProvider 创建 LLM 提 供者（自动� �测可用模型）
-func cre ateLLMProvider()  llm.Provider {
-	return creat eLLMProviderFor (config.Get().LLM.DefaultProvi der)
+// createLLMProvider 创建 LLM 提供者（自动检测可用模型）
+func createLLMProvider() llm.Provider {
+	return createLLMProviderFor(config.Get().LLM.DefaultProvider)
 }
 
-// cre ateLLMProviderFor 按名称创� �� prov ider（供路由器使用）
-func crea teLLMP roviderFor(name string) llm.Provider {
- 	cfg  := config.Get()
-	p, ok := cfg.LLM.Provid ers[ name]
+// createLLMProviderFor 按名称创建 provider（供路由器使用）
+func createLLMProviderFor(name string) llm.Provider {
+	cfg := config.Get()
+	p, ok := cfg.LLM.Providers[name]
 	if !ok || p.BaseURL == "" {
-		retu rn  nil
+		return nil
 	}
 	apiKey := p.APIKey
-	if apiKey == " "  && p.APIKeyEnv != "" {
-		apiKey = os.Getenv ( p.APIKeyEnv)
+	if apiKey == "" && p.APIKeyEnv != "" {
+		apiKey = os.Getenv(p.APIKeyEnv)
 	}
-	return llm.NewOpenAIProvide  r(llm.Config{
-		Provider:  name,
-		BaseURL:     p.BaseURL,
-		APIKey:    apiKey,
-		Model:       p.Model,
-		MaxTokens: p.MaxTokens,
-		Timeo ut :   120,
+	return llm.NewOpenAIProvider(llm.Config{
+		Provider:   name,
+		BaseURL:    p.BaseURL,
+		APIKey:     apiKey,
+		Model:      p.Model,
+		MaxTokens:  p.MaxTokens,
+		Timeout:    120,
 	})
 }
 
-// startCore 启动核心� ��� ��
-func startCore(database *sql.DB,  httpSrv * *http.Server, done chan struct{})  error {
-	tr ajRecorders = newTrajManager(file path.Join(co nfig.Get().Workspace.Root, "traj ectories"))
-	 recovered, err := task.RecoverT asks(database) 
+// startCore 启动核心服务
+func startCore(database *sql.DB, httpSrv **http.Server, done chan struct{}) error {
+	trajRecorders = newTrajManager(filepath.Join(config.Get().Workspace.Root, "trajectories"))
+	recovered, err := task.RecoverTasks(database)
 	if err != nil {
-		logger.Sug ar().Warnf("fai led to recover tasks: %v", er r)
-	} else if re covered > 0 {
-		logger.Sugar ().Infof("recover ed %d interrupted tasks", r ecovered)
+		logger.Sugar().Warnf("failed to recover tasks: %v", err)
+	} else if recovered > 0 {
+		logger.Sugar().Infof("recovered %d interrupted tasks", recovered)
 	}
 
-	llm Provider := createLLMProvi der()
-	mcpRegistry  := agent.NewMcpRegistry() 
-	agentLoop := agent .NewLoop(database, logge r, llmProvider)
+	llmProvider := createLLMProvider()
+	mcpRegistry := agent.NewMcpRegistry()
+	agentLoop := agent.NewLoop(database, logger, llmProvider)
 
-	//  Token 追踪器：自� �记录每次 LLM 调� ��的 token 用� ��和成本
-	tokenTracker :=  llm.NewTokenTra cker(database)
-	if op, ok := l lmProvider.(*l lm.OpenAIProvider); ok {
-		op.S etTracker(tok enTracker)
+	// Token 追踪器：自动记录每次 LLM 调用的 token 用量和成本
+	tokenTracker := llm.NewTokenTracker(database)
+	if op, ok := llmProvider.(*llm.OpenAIProvider); ok {
+		op.SetTracker(tokenTracker)
 	}
 
-	// 智能路由� ��：� ��据任务类型自动选择最佳模� � �
+	// 智能路由器：根据任务类型自动选择最佳模型
 	router := llm.NewRouter(
-		map[string]ll m .Provider{
-			"zhipu":      createLLMProvid er For("zhipu"),
-			"deepseek":   createLLMPr ovi derFor("deepseek"),
-			"ollama":     crea teLL MProviderFor("ollama"),
-			"siliconflow" : cre ateLLMProviderFor("siliconflow"),
+		map[string]llm.Provider{
+			"zhipu":        createLLMProviderFor("zhipu"),
+			"deepseek":     createLLMProviderFor("deepseek"),
+			"ollama":       createLLMProviderFor("ollama"),
+			"siliconflow":  createLLMProviderFor("siliconflow"),
 		},
- 		llm. RouterConfig{Default: "zhipu", Simple:  "ollam a", Complex: "zhipu", Vision: "zhipu" , Local:  "ollama"},
+		llm.RouterConfig{Default: "zhipu", Simple: "ollama", Complex: "zhipu", Vision: "zhipu", Local: "ollama"},
 	)
-	agentLoop.SetRouter( router)
+	agentLoop.SetRouter(router)
 
- 	// 将已注册的 MCP 工具同� �进 Agent  Loop（使工具可被 Agent 调� ��）
-	mcpR egistry.AttachLoop(agentLoop)
-	//  注入知� �库（Agent 规划时检索� ��
-	agentLoop.Se tKnowledgeBase(memory.NewKBS tore(database))
-	 // 注入视觉分析器（ 截图后自动分 析 UI）
-	if llmProvider  != nil {
-		agentLoo p.SetVisionAnalyzer(visio n.NewAnalyzer(llmPro vider))
+	// 将已注册的 MCP 工具同步进 Agent Loop（使工具可被 Agent 调用）
+	mcpRegistry.AttachLoop(agentLoop)
+	// 注入知识库（Agent 规划时检索）
+	agentLoop.SetKnowledgeBase(memory.NewKBStore(database))
+	// 注入视觉分析器（截图后自动分析 UI）
+	if llmProvider != nil {
+		agentLoop.SetVisionAnalyzer(vision.NewAnalyzer(llmProvider))
 	}
-	// 步骤事 件 → SSE 广播 +  轨迹记录
-	agentLoop .SetStepCallback(func( eventType string, data  map[string]any) {
-		ap i.GetBroadcaster().Pu blish(api.Event{Type: ev entType, Data: data} )
-		// 轨迹记录：把 每个任务的关� ��步骤事件写入 JSONL 
-		if tid, _ := da ta["task_id"].(string); tid  != "" {
-			if is TerminalEvent(eventType) {
-	 			if rec := tra jRecorders.recorder(tid); rec  != nil {
-					 _ = rec.Append(eventType, data )
+	// 步骤事件 → SSE 广播 + 轨迹记录
+	agentLoop.SetStepCallback(func(eventType string, data map[string]any) {
+		api.GetBroadcaster().Publish(api.Event{Type: eventType, Data: data})
+		// 轨迹记录：把每个任务的关键步骤事件写入 JSONL
+		if tid, _ := data["task_id"].(string); tid != "" {
+			if isTerminalEvent(eventType) {
+				if rec := trajRecorders.recorder(tid); rec != nil {
+					_ = rec.Append(eventType, data)
 				}
-				tr ajRecorders.finalize(tid)
-			}  else {
-				if  rec := trajRecorders.recorder(t id); rec !=  nil {
-					_ = rec.Append(eventTy pe, data)
-	 			}
+				trajRecorders.finalize(tid)
+			} else {
+				if rec := trajRecorders.recorder(tid); rec != nil {
+					_ = rec.Append(eventType, data)
+				}
 			}
 		}
 	})
-	publisher := &e ventPublis herAdapter{broadcaster: api.GetBroa dcaster() }
-	taskManager := task.NewManager(da tabase,  config.Get().Agent.MaxConcurrentTasks , logge r, agentLoop, publisher)
-	taskManager. Start( )
-	sched := scheduler.NewScheduler(data base,  &taskFactoryAdapter{manager: taskManage r},  logger)
+	publisher := &eventPublisherAdapter{broadcaster: api.GetBroadcaster()}
+	taskManager := task.NewManager(database, config.Get().Agent.MaxConcurrentTasks, logger, agentLoop, publisher)
+	taskManager.Start()
+	sched := scheduler.NewScheduler(database, &taskFactoryAdapter{manager: taskManager}, logger)
 	sched.Start()
 
-	// 初始化主� � ���任务执行器（事件驱动的自动� ��� �� + 每日摘要 + 文件观察） 
-	eventBus  := agent.NewEventBus(database)
-	p olicyEngine  := agent.NewPolicyEngine()
-	proa ctive := age nt.NewProactiveRunner(agentLoop,  eventBus, po licyEngine)
-	_ = proactive // � ��件处理器 通过 eventBus.Subscribe 自� ��注册
-	// � � EventBus 注入 Agent Lo op（任务失败� �触发主动恢复） 
-	agentLoop.SetEventBus (eventBus)
-	// 设置 追踪记录目录
-	agen tLoop.SetTraceDir(". /data/workspace/traces")
- 	// 初始化反馈 收集器（任务完成/� ��败时自� ��统计）
-	fbStore := agent.New FeedbackSto re(database)
-	_ = fbStore.InitSche ma()
-	fbCo llector := agent.NewFeedbackCollect or(fbStor e, agentLoop)
-	agentLoop.SetFeedback Collecto r(fbCollector)
-	// 初始化记忆反 思引� ��（自动从记忆中提炼用户画 像） 
-	reflection := agent.NewReflectionEngi ne(da tabase, memory.NewStore(database), fbSto re)
- 	_ = reflection.InitSchema()
+	// 初始化主任务执行器（事件驱动的自动化 + 每日摘要 + 文件观察）
+	eventBus := agent.NewEventBus(database)
+	policyEngine := agent.NewPolicyEngine()
+	proactive := agent.NewProactiveRunner(agentLoop, eventBus, policyEngine)
+	_ = proactive // 事件处理器通过 eventBus.Subscribe 自行注册
+	// 将 EventBus 注入 Agent Loop（任务失败时触发主动恢复）
+	agentLoop.SetEventBus(eventBus)
+	// 设置追踪记录目录
+	agentLoop.SetTraceDir("./data/workspace/traces")
+	// 初始化反馈收集器（任务完成/失败时自动统计）
+	fbStore := agent.NewFeedbackStore(database)
+	_ = fbStore.InitSchema()
+	fbCollector := agent.NewFeedbackCollector(fbStore, agentLoop)
+	agentLoop.SetFeedbackCollector(fbCollector)
+	// 初始化记忆反思引擎（自动从记忆中提炼用户画像）
+	reflection := agent.NewReflectionEngine(database, memory.NewStore(database), fbStore)
+	_ = reflection.InitSchema()
 
-	// 初始� � ���记忆生命周期管理器（active→c ons olidated→archived→forgotten）
-	lifec ycle  := agent.NewMemoryLifecycle(database)
-	 _ = l ifecycle.InitSchema()
-	// 每周运行� ��次� ��命周期检查（注册为定 时任务）
- 	lifecycleJob := &scheduler.Job {
+	// 初始化记忆生命周期管理器（active→consolidated→archived→forgotten）
+	lifecycle := agent.NewMemoryLifecycle(database)
+	_ = lifecycle.InitSchema()
+	// 每周运行一次生命周期检查（注册为定时任务）
+	lifecycleJob := &scheduler.Job{
 		ID:            "memory-lifecycle",
-		Name :         "记� ��生命周期清理",
- 		TriggerType:  schedu ler.TriggerInterval,
-	 	IntervalSecs: 7 * 24 *  3600, // 每周
-		Go alTemplate: "运行记� �生命周期检� ��：清理过期记忆，� �炼用户画 像",
-		Priority:     2,
-		Enabl ed:      tru e,
-		Concurrency:  "skip",
+		Name:          "记忆生命周期清理",
+		TriggerType:   scheduler.TriggerInterval,
+		IntervalSecs:  7 * 24 * 3600, // 每周
+		GoalTemplate:  "运行记忆生命周期检查：清理过期记忆，提炼用户画像",
+		Priority:      2,
+		Enabled:       true,
+		Concurrency:   "skip",
 	}
-	_  = sched.Cre ateJob(lifecycleJob)
+	_ = sched.CreateJob(lifecycleJob)
 
-	// 注册� �日摘 要定时任务（每天 8:00 自动� �� � daily digest）
-	dailyDigestJob := &sche du ler.Job{
-		ID:           "daily-digest",
-		 N ame:         "每日摘要",
-		TriggerType:    scheduler.TriggerCron,
-		GoalTemplate: "生� �� ��今日摘要：总结今天完成的 任务� ��新增的记忆、失败的� �务",
-		Prior ity:     3,
-		Enabled:      tr ue,
-		Concurren cy:  "skip",
+	// 注册每日摘要定时任务（每天 8:00 自动生成 daily digest）
+	dailyDigestJob := &scheduler.Job{
+		ID:            "daily-digest",
+		Name:          "每日摘要",
+		TriggerType:   scheduler.TriggerCron,
+		GoalTemplate:  "生成今日摘要：总结今天完成的任务、新增的记忆、失败的任务",
+		Priority:      3,
+		Enabled:       true,
+		Concurrency:   "skip",
 	}
-	_ = sched.Cr eateJob(dailyDig estJob)
+	_ = sched.CreateJob(dailyDigestJob)
 
-	// 启动 FileWatc her 触发器（� ��听 file_watch 类� ��的 job）
-	fileWatche r := scheduler.NewFi leWatcher(sched, logger)
- 	if fileWatcher !=  nil {
-		for path := range  sched.FileWatchTar gets() {
-			if err := fileW atcher.Watch(path ); err != nil {
-				logger.S ugar().Warnf("fa iled to watch %s: %v", path,  err)
-			} else  {
-				logger.Sugar().Infof("fi le watcher wat ching: %s", path)
+	// 启动 FileWatcher 触发器（监听 file_watch 类型的 job）
+	fileWatcher := scheduler.NewFileWatcher(sched, logger)
+	if fileWatcher != nil {
+		for path := range sched.FileWatchTargets() {
+			if err := fileWatcher.Watch(path); err != nil {
+				logger.Sugar().Warnf("failed to watch %s: %v", path, err)
+			} else {
+				logger.Sugar().Infof("file watcher watching: %s", path)
 			}
 		}
-		fw Ctx, fwCancel  := context.WithCancel(context.B ackground()) 
+		fwCtx, fwCancel := context.WithCancel(context.Background())
 		fileWatcher.Start(fwCtx)
-		_ =  fwCancel
-	 }
+		_ = fwCancel
+	}
 
-	httpRouter := api.NewRouter(ta skManager,  sched, database, mcpRegistry, agen tLoop, ll mProvider, logger)
-	port := config.G et().Ser ver.Port
-	*httpSrv = &http.Server{Addr: fmt.Sprintf("%s:%d", cfg.Server.Host, port), Handler: httpRou ter}
+	httpRouter := api.NewRouter(taskManager, sched, database, mcpRegistry, agentLoop, llmProvider, logger)
+	port := config.Get().Server.Port
+	*httpSrv = &http.Server{Addr: fmt.Sprintf("%s:%d", config.Get().Server.Host, port), Handler: httpRouter}
 
- 	go func() {
-		logger.Sugar().Infof("HT TP se rver listening on port %d", port)
-		if e rr : = (*httpSrv).ListenAndServe(); err != nil  &&  err != http.ErrServerClosed {
-			logger.S ug ar().Errorf("HTTP server error: %v", err)
-	 	 }
+	go func() {
+		logger.Sugar().Infof("HTTP server listening on port %d", port)
+		if err := (*httpSrv).ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			logger.Sugar().Errorf("HTTP server error: %v", err)
+		}
 		close(done)
 	}()
 	return nil
 }
 
-type pro  gram struct {
+type program struct {
 	ctx    context.Context
-	cancel   context.CancelFunc
+	cancel context.CancelFunc
 	srv    *http.Server
 }
 
- func (p *program) Start(s service.Service) e rr or {
-	p.ctx, p.cancel = context.WithCancel (co ntext.Background())
-	logger.Info("startin g Op enAgent Agent service")
+func (p *program) Start(s service.Service) error {
+	p.ctx, p.cancel = context.WithCancel(context.Background())
+	logger.Info("starting OpenAgent Agent service")
 
-	database, err  := db .Init(config.Get().DB.Path)
-	if err !=  nil {
- 		return fmt.Errorf("init db: %w", err )
+	database, err := db.Init(config.Get().DB.Path)
+	if err != nil {
+		return fmt.Errorf("init db: %w", err)
 	}
 
-	 interval, _ := time.ParseDuration(con fig.Get( ).Service.HeartbeatInterval)
-	if int erval ==  0 {
+	interval, _ := time.ParseDuration(config.Get().Service.HeartbeatInterval)
+	if interval == 0 {
 		interval = 30 * time.Second
-	 }
-	hb := o bservability.NewHeartbeat(interval , config.Ge t().Server.Port, 3, logger)
-	go h b.Run(p.ctx) 
+	}
+	hb := observability.NewHeartbeat(interval, config.Get().Server.Port, 3, logger)
+	go hb.Run(p.ctx)
 
 	done := make(chan struct{})
-	 if err := sta rtCore(database, &p.srv, done);  err != nil {
- 		return err
-	}
-
-	go func() {
- 		sigCh := make (chan os.Signal, 1)
-		signal. Notify(sigCh, sy scall.SIGINT, syscall.SIGTER M)
-		<-sigCh
-		lo gger.Info("received shutdow n signal")
-		p.Sto p(s)
-	}()
-	return nil
-}
-
-func (p *program) St op(s service.Service) err or {
-	logger.Info("s topping OpenAgent Agent  service")
-	if p.srv ! = nil {
-		p.srv.Close() 
-	}
-	db.Close()
-	obser vability.Sync()
-	if p. cancel != nil {
-		p.can cel()
-	}
-	return nil
- }
-
-// Run 前台运行
-func Run() error {
-	v ar err error
-	logger, err  = observability.In it(config.Get().Observabil ity.LogFile, confi g.Get().Observability.LogLe vel)
-	if err != n il {
-		return fmt.Errorf("in it logger: %w",  err)
-	}
-	defer observability. Sync()
-
-	databa se, err := db.Init(config.Get( ).DB.Path)
-	if  err != nil {
-		return fmt.Erro rf("init db:  %w", err)
-	}
-	defer database.Clo se()
-
-	inter val, _ := time.ParseDuration(conf ig.Get().Se rvice.HeartbeatInterval)
-	if inter val == 0 { 
-		interval = 30 * time.Second
-	}
-	 hb := obs ervability.NewHeartbeat(interval, co nfig.Get ().Server.Port, 3, logger)
-	ctx, canc el := c ontext.WithCancel(context.Background() )
-	def er cancel()
-	go hb.Run(ctx)
-
-	done := m ake(c han struct{})
-	var srv *http.Server
-	if  err  := startCore(database, &srv, done); err ! = n il {
+	if err := startCore(database, &p.srv, done); err != nil {
 		return err
 	}
 
 	go func() {
-		sigCh  : = make(chan os.Signal, 1)
-		signal.Notify(s i gCh, syscall.SIGINT, syscall.SIGTERM)
-		<-si  gCh
+		sigCh := make(chan os.Signal, 1)
+		signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+		<-sigCh
+		logger.Info("received shutdown signal")
+		p.Stop(s)
+	}()
+	return nil
+}
+
+func (p *program) Stop(s service.Service) error {
+	logger.Info("stopping OpenAgent Agent service")
+	if p.srv != nil {
+		p.srv.Close()
+	}
+	db.Close()
+	observability.Sync()
+	if p.cancel != nil {
+		p.cancel()
+	}
+	return nil
+}
+
+// Run 前台运行
+func Run() error {
+	var err error
+	logger, err = observability.Init(config.Get().Observability.LogFile, config.Get().Observability.LogLevel)
+	if err != nil {
+		return fmt.Errorf("init logger: %w", err)
+	}
+	defer observability.Sync()
+
+	database, err := db.Init(config.Get().DB.Path)
+	if err != nil {
+		return fmt.Errorf("init db: %w", err)
+	}
+	defer database.Close()
+
+	interval, _ := time.ParseDuration(config.Get().Service.HeartbeatInterval)
+	if interval == 0 {
+		interval = 30 * time.Second
+	}
+	hb := observability.NewHeartbeat(interval, config.Get().Server.Port, 3, logger)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go hb.Run(ctx)
+
+	done := make(chan struct{})
+	var srv *http.Server
+	if err := startCore(database, &srv, done); err != nil {
+		return err
+	}
+
+	go func() {
+		sigCh := make(chan os.Signal, 1)
+		signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+		<-sigCh
 		logger.Info("shutting down...")
-		srv.C  lose()
+		srv.Close()
 	}()
 	<-done
 	return nil
 }
 
-func Inst a ll() error {
+func Install() error {
 	cfg := &service.Config{
-		Nam e:  config.Get().Service.Name, DisplayName: c onf ig.Get().Service.DisplayName,
-		Descripti on:  "OpenAgent Agent - 24/7 autonomous compu ter-u se agent",
-		Dependencies: []string{},  Workin gDirectory: ".",
+		Name:             config.Get().Service.Name,
+		DisplayName:      config.Get().Service.DisplayName,
+		Description:      "OpenAgent Agent - 24/7 autonomous computer-use agent",
+		Dependencies:     []string{},
+		WorkingDirectory: ".",
 	}
-	svc, err := servi ce.New( &program{}, cfg)
+	svc, err := service.New(&program{}, cfg)
 	if err != nil {
-		r eturn fm t.Errorf("create service: %w", err)
- 	}
-	if er r := svc.Install(); err != nil {
-		 return fmt .Errorf("install service: %w", err )
+		return fmt.Errorf("create service: %w", err)
 	}
-	fmt.P rintf("Service '%s' installed suc cessfully\n" , cfg.DisplayName)
-	return nil
-} 
-
-func Uninst all() error {
-	cfg := &service. Config{Name: c onfig.Get().Service.Name}
-	svc , err := servic e.New(&program{}, cfg)
-	if er r != nil {
-		ret urn fmt.Errorf("create servi ce: %w", err)
+	if err := svc.Install(); err != nil {
+		return fmt.Errorf("install service: %w", err)
 	}
- 	if err := svc.Uninstall();  err != nil {
-		re turn fmt.Errorf("uninstall  service: %w", err) 
-	}
-	fmt.Printf("Service  '%s' uninstalled suc cessfully\n", cfg.Name)
- 	return nil
-}
-
-func S tatus() error {
-	cfg :=  &service.Config{Name:  config.Get().Service. Name}
-	svc, err := serv ice.New(&program{}, c fg)
-	if err != nil {
-		r eturn fmt.Errorf("cr eate service: %w", err)
-	 }
-	status, err := s vc.Status()
-	if err != nil  {
-		return fmt.Er rorf("get status: %w", err) 
-	}
-	fmt.Printf(" Service '%s' status: %v\n",  cfg.Name, status )
+	fmt.Printf("Service '%s' installed successfully\n", cfg.DisplayName)
 	return nil
 }
-  
+
+func Uninstall() error {
+	cfg := &service.Config{Name: config.Get().Service.Name}
+	svc, err := service.New(&program{}, cfg)
+	if err != nil {
+		return fmt.Errorf("create service: %w", err)
+	}
+	if err := svc.Uninstall(); err != nil {
+		return fmt.Errorf("uninstall service: %w", err)
+	}
+	fmt.Printf("Service '%s' uninstalled successfully\n", cfg.Name)
+	return nil
+}
+
+func Status() error {
+	cfg := &service.Config{Name: config.Get().Service.Name}
+	svc, err := service.New(&program{}, cfg)
+	if err != nil {
+		return fmt.Errorf("create service: %w", err)
+	}
+	status, err := svc.Status()
+	if err != nil {
+		return fmt.Errorf("get status: %w", err)
+	}
+	fmt.Printf("Service '%s' status: %v\n", cfg.Name, status)
+	return nil
+}
