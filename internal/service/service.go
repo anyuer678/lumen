@@ -28,10 +28,10 @@ import (
 
 var logger *zap.Logger
 
-// trajRecorders global trajectory recorder manager (per-task recorder cache)
+// trajRecorders 全局轨迹记录管理器（按 task 缓存 recorder）
 var trajRecorders *trajManager
 
-// eventPublisherAdapter adapts to SSE broadcaster
+// eventPublisherAdapter 适配 SSE 广播器
 type eventPublisherAdapter struct {
 	broadcaster *api.EventBroadcaster
 }
@@ -40,7 +40,7 @@ func (a *eventPublisherAdapter) Publish(eventType string, data interface{}) {
 	a.broadcaster.Publish(api.Event{Type: eventType, Data: data})
 }
 
-// taskFactoryAdapter adapts TaskManager to scheduler.TaskFactory
+// taskFactoryAdapter 适配 TaskManager 为 scheduler.TaskFactory
 type taskFactoryAdapter struct {
 	manager *task.Manager
 }
@@ -49,12 +49,12 @@ func (a *taskFactoryAdapter) CreateTask(goal string, priority int) error {
 	return a.manager.CreateTaskFromScheduler(goal, priority)
 }
 
-// createLLMProvider creates LLM provider (auto-detect available models)
+// createLLMProvider 创建 LLM 提供者（自动检测可用模型）
 func createLLMProvider() llm.Provider {
 	return createLLMProviderFor(config.Get().LLM.DefaultProvider)
 }
 
-// createLLMProviderFor creates provider by name (for router use)
+// createLLMProviderFor 按名称创建 provider（供路由器使用）
 func createLLMProviderFor(name string) llm.Provider {
 	cfg := config.Get()
 	p, ok := cfg.LLM.Providers[name]
@@ -75,7 +75,7 @@ func createLLMProviderFor(name string) llm.Provider {
 	})
 }
 
-// startCore starts the core service
+// startCore 启动核心服务
 func startCore(database *sql.DB, httpSrv **http.Server, done chan struct{}) error {
 	trajRecorders = newTrajManager(filepath.Join(config.Get().Workspace.Root, "trajectories"))
 	recovered, err := task.RecoverTasks(database)
@@ -89,36 +89,36 @@ func startCore(database *sql.DB, httpSrv **http.Server, done chan struct{}) erro
 	mcpRegistry := agent.NewMcpRegistry()
 	agentLoop := agent.NewLoop(database, logger, llmProvider)
 
-	// Token tracker: auto-record token usage and cost per LLM call
+	// Token 追踪器：自动记录每次 LLM 调用的 token 用量和成本
 	tokenTracker := llm.NewTokenTracker(database)
 	if op, ok := llmProvider.(*llm.OpenAIProvider); ok {
 		op.SetTracker(tokenTracker)
 	}
 
-	// Smart router: auto-select best model by task type
+	// 智能路由器：根据任务类型自动选择最佳模型
 	router := llm.NewRouter(
 		map[string]llm.Provider{
-			"zhipu":       createLLMProviderFor("zhipu"),
-			"deepseek":    createLLMProviderFor("deepseek"),
-			"ollama":      createLLMProviderFor("ollama"),
+			"zhipu":      createLLMProviderFor("zhipu"),
+			"deepseek":   createLLMProviderFor("deepseek"),
+			"ollama":     createLLMProviderFor("ollama"),
 			"siliconflow": createLLMProviderFor("siliconflow"),
 		},
 		llm.RouterConfig{Default: "zhipu", Simple: "ollama", Complex: "zhipu", Vision: "zhipu", Local: "ollama"},
 	)
 	agentLoop.SetRouter(router)
 
-	// Sync registered MCP tools into Agent Loop (make tools callable by Agent)
+	// 将已注册的 MCP 工具同步进 Agent Loop（使工具可被 Agent 调用）
 	mcpRegistry.AttachLoop(agentLoop)
-	// Inject knowledge base (for agent planning retrieval)
+	// 注入知识库（Agent 规划时检索）
 	agentLoop.SetKnowledgeBase(memory.NewKBStore(database))
-	// Inject vision analyzer (auto-analyze UI after screenshot)
+	// 注入视觉分析器（截图后自动分析 UI）
 	if llmProvider != nil {
 		agentLoop.SetVisionAnalyzer(vision.NewAnalyzer(llmProvider))
 	}
-	// Step events -> SSE broadcast + trajectory recording
+	// 步骤事件 → SSE 广播 + 轨迹记录
 	agentLoop.SetStepCallback(func(eventType string, data map[string]any) {
 		api.GetBroadcaster().Publish(api.Event{Type: eventType, Data: data})
-		// Trajectory recording: write key step events to JSONL per task
+		// 轨迹记录：把每个任务的关键步骤事件写入 JSONL
 		if tid, _ := data["task_id"].(string); tid != "" {
 			if isTerminalEvent(eventType) {
 				if rec := trajRecorders.recorder(tid); rec != nil {
@@ -138,53 +138,53 @@ func startCore(database *sql.DB, httpSrv **http.Server, done chan struct{}) erro
 	sched := scheduler.NewScheduler(database, &taskFactoryAdapter{manager: taskManager}, logger)
 	sched.Start()
 
-	// Initialize main task executor (event-driven automation + daily digest + file watcher)
+	// 初始化主动任务执行器（事件驱动的自动恢复 + 每日摘要 + 文件观察）
 	eventBus := agent.NewEventBus(database)
 	policyEngine := agent.NewPolicyEngine()
 	proactive := agent.NewProactiveRunner(agentLoop, eventBus, policyEngine)
-	_ = proactive // event handlers register themselves via eventBus.Subscribe
-	// Inject EventBus into Agent Loop (trigger proactive recovery on task failure)
+	_ = proactive // 事件处理器通过 eventBus.Subscribe 自动注册
+	// 将 EventBus 注入 Agent Loop（任务失败时触发主动恢复）
 	agentLoop.SetEventBus(eventBus)
-	// Set trace recording directory
+	// 设置追踪记录目录
 	agentLoop.SetTraceDir("./data/workspace/traces")
-	// Initialize feedback collector (auto-stats on task completion/failure)
+	// 初始化反馈收集器（任务完成/失败时自动统计）
 	fbStore := agent.NewFeedbackStore(database)
 	_ = fbStore.InitSchema()
 	fbCollector := agent.NewFeedbackCollector(fbStore, agentLoop)
 	agentLoop.SetFeedbackCollector(fbCollector)
-	// Initialize memory reflection engine (auto-distill user profile from memory)
+	// 初始化记忆反思引擎（自动从记忆中提炼用户画像）
 	reflection := agent.NewReflectionEngine(database, memory.NewStore(database), fbStore)
 	_ = reflection.InitSchema()
 
-	// Initialize memory lifecycle manager (active -> consolidated -> archived -> forgotten)
+	// 初始化记忆生命周期管理器（active→consolidated→archived→forgotten）
 	lifecycle := agent.NewMemoryLifecycle(database)
 	_ = lifecycle.InitSchema()
-	// Run lifecycle check weekly (registered as scheduled job)
+	// 每周运行一次生命周期检查（注册为定时任务）
 	lifecycleJob := &scheduler.Job{
 		ID:           "memory-lifecycle",
-		Name:         "Memory Lifecycle Cleanup",
+		Name:         "记忆生命周期清理",
 		TriggerType:  scheduler.TriggerInterval,
-		IntervalSecs: 7 * 24 * 3600, // weekly
-		GoalTemplate: "Run memory lifecycle check: clean expired memories, distill user profile",
+		IntervalSecs: 7 * 24 * 3600, // 每周
+		GoalTemplate: "运行记忆生命周期检查：清理过期记忆，提炼用户画像",
 		Priority:     2,
 		Enabled:      true,
 		Concurrency:  "skip",
 	}
 	_ = sched.CreateJob(lifecycleJob)
 
-	// Register daily digest scheduled job (auto-generate daily digest at 8:00)
+	// 注册每日摘要定时任务（每天 8:00 自动生成 daily digest）
 	dailyDigestJob := &scheduler.Job{
 		ID:           "daily-digest",
-		Name:         "Daily Digest",
+		Name:         "每日摘要",
 		TriggerType:  scheduler.TriggerCron,
-		GoalTemplate: "Generate today's digest: summarize completed tasks, new memories, failed tasks",
+		GoalTemplate: "生成今日摘要：总结今天完成的任务、新增的记忆、失败的任务",
 		Priority:     3,
 		Enabled:      true,
 		Concurrency:  "skip",
 	}
 	_ = sched.CreateJob(dailyDigestJob)
 
-	// Start FileWatcher trigger (listen for file_watch type jobs)
+	// 启动 FileWatcher 触发器（监听 file_watch 类型的 job）
 	fileWatcher := scheduler.NewFileWatcher(sched, logger)
 	if fileWatcher != nil {
 		for path := range sched.FileWatchTargets() {
@@ -201,7 +201,7 @@ func startCore(database *sql.DB, httpSrv **http.Server, done chan struct{}) erro
 
 	httpRouter := api.NewRouter(taskManager, sched, database, mcpRegistry, agentLoop, llmProvider, logger)
 	port := config.Get().Server.Port
-	*httpSrv = &http.Server{Addr: fmt.Sprintf("%s:%d", config.Get().Server.Host, port), Handler: httpRouter}
+	*httpSrv = &http.Server{Addr: fmt.Sprintf(":%d", port), Handler: httpRouter}
 
 	go func() {
 		logger.Sugar().Infof("HTTP server listening on port %d", port)
@@ -263,7 +263,7 @@ func (p *program) Stop(s service.Service) error {
 	return nil
 }
 
-// Run runs the service in foreground mode
+// Run 前台运行
 func Run() error {
 	var err error
 	logger, err = observability.Init(config.Get().Observability.LogFile, config.Get().Observability.LogLevel)
@@ -306,11 +306,9 @@ func Run() error {
 
 func Install() error {
 	cfg := &service.Config{
-		Name:             config.Get().Service.Name,
-		DisplayName:      config.Get().Service.DisplayName,
-		Description:      "OpenAgent Agent - 24/7 autonomous computer-use agent",
-		Dependencies:     []string{},
-		WorkingDirectory: ".",
+		Name: config.Get().Service.Name, DisplayName: config.Get().Service.DisplayName,
+		Description: "OpenAgent Agent - 24/7 autonomous computer-use agent",
+		Dependencies: []string{}, WorkingDirectory: ".",
 	}
 	svc, err := service.New(&program{}, cfg)
 	if err != nil {

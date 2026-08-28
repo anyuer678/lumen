@@ -44,47 +44,9 @@ func extractInnerCommand(cmd string) string {
 	return cmd
 }
 
-// splitShellOperators 按 shell 操作符拆分命令为多个段。
-// 支持: &&, ||, |, ;, &
-func splitShellOperators(cmd string) []string {
-	var segments []string
-	current := strings.Builder{}
-
-	i := 0
-	for i < len(cmd) {
-		// 检查 && 或 ||
-		if i+1 < len(cmd) {
-		 twoChar := string(cmd[i]) + string(cmd[i+1])
-		 if twoChar == "&&" || twoChar == "||" {
-			 if current.Len() > 0 {
-				 segments = append(segments, strings.TrimSpace(current.String()))
-				 current.Reset()
-			 }
-			 i += 2
-			 continue
-		 }
-		}
-		// 检查 | 或 ; 或 &
-		if cmd[i] == '|' || cmd[i] == ';' || cmd[i] == '&' {
-		 if current.Len() > 0 {
-			 segments = append(segments, strings.TrimSpace(current.String()))
-			 current.Reset()
-		 }
-		 i++
-		 continue
-		}
-		current.WriteByte(cmd[i])
-		i++
-	}
-	if current.Len() > 0 {
-		segments = append(segments, strings.TrimSpace(current.String()))
-	}
-	return segments
-}
-
-// classifySingleCommand 对单个命令片段做分类。
-func classifySingleCommand(cmd string) CommandClass {
-	cmd = strings.TrimSpace(cmd)
+// ClassifyCommand 判断命令是只读、读写还是破坏性。
+func ClassifyCommand(command string) CommandClass {
+	cmd := strings.TrimSpace(command)
 	if cmd == "" {
 		return CommandUnknown
 	}
@@ -104,24 +66,6 @@ func classifySingleCommand(cmd string) CommandClass {
 		}
 	}
 	return CommandReadWrite
-}
-
-// ClassifyCommand 判断命令是只读、读写还是破坏性。
-// 按 shell 操作符拆分后逐段分类，最危险的段决定整体分类。
-func ClassifyCommand(command string) CommandClass {
-	segments := splitShellOperators(command)
-	if len(segments) == 0 {
-		return CommandUnknown
-	}
-	// 取最危险的分类
-	worst := CommandReadOnly
-	for _, seg := range segments {
-		cls := classifySingleCommand(seg)
-		if cls > worst {
-			worst = cls
-		}
-	}
-	return worst
 }
 
 // IsPathEscaped 检测目标路径是否逃逸出根目录（沙箱）。
