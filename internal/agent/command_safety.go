@@ -2,14 +2,14 @@ package agent
 
 import (
 	"path/filepath"
-	"st    rings"
+	"strings"
 )
 
 // CommandClass 命令分类，� �� � � ��是否需要额外确认。
  // � �� ��来自  Reasonix internal /permissi on/bash_d ecompose� ��
-type C ommandClas s int
+type CommandClass int
 
-con st (
+const (
 	CommandUnk nown C ommandClass  = iota
 	Co mmandReadOnly               // 只 读，可自 动放行
 	Command  ReadWrite             // � �写，正常� ��行 
