@@ -28,10 +28,10 @@ import (
 
 var logger *zap.Logger
 
-// trajRecorders 全局轨迹记录管理器（按 task 缓存 recorder）
+// trajRecorders global trajectory recorder manager (per-task recorder cache)
 var trajRecorders *trajManager
 
-// eventPublisherAdapter 适配 SSE 广播器
+// eventPublisherAdapter adapts to SSE broadcaster
 type eventPublisherAdapter struct {
 	broadcaster *api.EventBroadcaster
 }
@@ -40,7 +40,7 @@ func (a *eventPublisherAdapter) Publish(eventType string, data interface{}) {
 	a.broadcaster.Publish(api.Event{Type: eventType, Data: data})
 }
 
-// taskFactoryAdapter 适配 TaskManager 为 scheduler.TaskFactory
+// taskFactoryAdapter adapts TaskManager to scheduler.TaskFactory
 type taskFactoryAdapter struct {
 	manager *task.Manager
 }
@@ -49,12 +49,12 @@ func (a *taskFactoryAdapter) CreateTask(goal string, priority int) error {
 	return a.manager.CreateTaskFromScheduler(goal, priority)
 }
 
-// createLLMProvider 创建 LLM 提供者（自动检测可用模型）
+// createLLMProvider creates LLM provider (auto-detect available models)
 func createLLMProvider() llm.Provider {
 	return createLLMProviderFor(config.Get().LLM.DefaultProvider)
 }
 
-// createLLMProviderFor 按名称创建 provider（供路由器使用）
+// createLLMProviderFor creates provider by name (for router use)
 func createLLMProviderFor(name string) llm.Provider {
 	cfg := config.Get()
 	p, ok := cfg.LLM.Providers[name]
@@ -66,16 +66,16 @@ func createLLMProviderFor(name string) llm.Provider {
 		apiKey = os.Getenv(p.APIKeyEnv)
 	}
 	return llm.NewOpenAIProvider(llm.Config{
-		Provider:   name,
-		BaseURL:    p.BaseURL,
-		APIKey:     apiKey,
-		Model:      p.Model,
-		MaxTokens:  p.MaxTokens,
-		Timeout:    120,
+		Provider:  name,
+		BaseURL:   p.BaseURL,
+		APIKey:    apiKey,
+		Model:     p.Model,
+		MaxTokens: p.MaxTokens,
+		Timeout:   120,
 	})
 }
 
-// startCore 启动核心服务
+// startCore starts the core service
 func startCore(database *sql.DB, httpSrv **http.Server, done chan struct{}) error {
 	trajRecorders = newTrajManager(filepath.Join(config.Get().Workspace.Root, "trajectories"))
 	recovered, err := task.RecoverTasks(database)
@@ -89,36 +89,36 @@ func startCore(database *sql.DB, httpSrv **http.Server, done chan struct{}) erro
 	mcpRegistry := agent.NewMcpRegistry()
 	agentLoop := agent.NewLoop(database, logger, llmProvider)
 
-	// Token 追踪器：自动记录每次 LLM 调用的 token 用量和成本
+	// Token tracker: auto-record token usage and cost per LLM call
 	tokenTracker := llm.NewTokenTracker(database)
 	if op, ok := llmProvider.(*llm.OpenAIProvider); ok {
 		op.SetTracker(tokenTracker)
 	}
 
-	// 智能路由器：根据任务类型自动选择最佳模型
+	// Smart router: auto-select best model by task type
 	router := llm.NewRouter(
 		map[string]llm.Provider{
-			"zhipu":        createLLMProviderFor("zhipu"),
-			"deepseek":     createLLMProviderFor("deepseek"),
-			"ollama":       createLLMProviderFor("ollama"),
-			"siliconflow":  createLLMProviderFor("siliconflow"),
+			"zhipu":       createLLMProviderFor("zhipu"),
+			"deepseek":    createLLMProviderFor("deepseek"),
+			"ollama":      createLLMProviderFor("ollama"),
+			"siliconflow": createLLMProviderFor("siliconflow"),
 		},
 		llm.RouterConfig{Default: "zhipu", Simple: "ollama", Complex: "zhipu", Vision: "zhipu", Local: "ollama"},
 	)
 	agentLoop.SetRouter(router)
 
-	// 将已注册的 MCP 工具同步进 Agent Loop（使工具可被 Agent 调用）
+	// Sync registered MCP tools into Agent Loop (make tools callable by Agent)
 	mcpRegistry.AttachLoop(agentLoop)
-	// 注入知识库（Agent 规划时检索）
+	// Inject knowledge base (for agent planning retrieval)
 	agentLoop.SetKnowledgeBase(memory.NewKBStore(database))
-	// 注入视觉分析器（截图后自动分析 UI）
+	// Inject vision analyzer (auto-analyze UI after screenshot)
 	if llmProvider != nil {
 		agentLoop.SetVisionAnalyzer(vision.NewAnalyzer(llmProvider))
 	}
-	// 步骤事件 → SSE 广播 + 轨迹记录
+	// Step events -> SSE broadcast + trajectory recording
 	agentLoop.SetStepCallback(func(eventType string, data map[string]any) {
 		api.GetBroadcaster().Publish(api.Event{Type: eventType, Data: data})
-		// 轨迹记录：把每个任务的关键步骤事件写入 JSONL
+		// Trajectory recording: write key step events to JSONL per task
 		if tid, _ := data["task_id"].(string); tid != "" {
 			if isTerminalEvent(eventType) {
 				if rec := trajRecorders.recorder(tid); rec != nil {
@@ -138,53 +138,53 @@ func startCore(database *sql.DB, httpSrv **http.Server, done chan struct{}) erro
 	sched := scheduler.NewScheduler(database, &taskFactoryAdapter{manager: taskManager}, logger)
 	sched.Start()
 
-	// 初始化主任务执行器（事件驱动的自动化 + 每日摘要 + 文件观察）
+	// Initialize main task executor (event-driven automation + daily digest + file watcher)
 	eventBus := agent.NewEventBus(database)
 	policyEngine := agent.NewPolicyEngine()
 	proactive := agent.NewProactiveRunner(agentLoop, eventBus, policyEngine)
-	_ = proactive // 事件处理器通过 eventBus.Subscribe 自行注册
-	// 将 EventBus 注入 Agent Loop（任务失败时触发主动恢复）
+	_ = proactive // event handlers register themselves via eventBus.Subscribe
+	// Inject EventBus into Agent Loop (trigger proactive recovery on task failure)
 	agentLoop.SetEventBus(eventBus)
-	// 设置追踪记录目录
+	// Set trace recording directory
 	agentLoop.SetTraceDir("./data/workspace/traces")
-	// 初始化反馈收集器（任务完成/失败时自动统计）
+	// Initialize feedback collector (auto-stats on task completion/failure)
 	fbStore := agent.NewFeedbackStore(database)
 	_ = fbStore.InitSchema()
 	fbCollector := agent.NewFeedbackCollector(fbStore, agentLoop)
 	agentLoop.SetFeedbackCollector(fbCollector)
-	// 初始化记忆反思引擎（自动从记忆中提炼用户画像）
+	// Initialize memory reflection engine (auto-distill user profile from memory)
 	reflection := agent.NewReflectionEngine(database, memory.NewStore(database), fbStore)
 	_ = reflection.InitSchema()
 
-	// 初始化记忆生命周期管理器（active→consolidated→archived→forgotten）
+	// Initialize memory lifecycle manager (active -> consolidated -> archived -> forgotten)
 	lifecycle := agent.NewMemoryLifecycle(database)
 	_ = lifecycle.InitSchema()
-	// 每周运行一次生命周期检查（注册为定时任务）
+	// Run lifecycle check weekly (registered as scheduled job)
 	lifecycleJob := &scheduler.Job{
-		ID:            "memory-lifecycle",
-		Name:          "记忆生命周期清理",
-		TriggerType:   scheduler.TriggerInterval,
-		IntervalSecs:  7 * 24 * 3600, // 每周
-		GoalTemplate:  "运行记忆生命周期检查：清理过期记忆，提炼用户画像",
-		Priority:      2,
-		Enabled:       true,
-		Concurrency:   "skip",
+		ID:           "memory-lifecycle",
+		Name:         "Memory Lifecycle Cleanup",
+		TriggerType:  scheduler.TriggerInterval,
+		IntervalSecs: 7 * 24 * 3600, // weekly
+		GoalTemplate: "Run memory lifecycle check: clean expired memories, distill user profile",
+		Priority:     2,
+		Enabled:      true,
+		Concurrency:  "skip",
 	}
 	_ = sched.CreateJob(lifecycleJob)
 
-	// 注册每日摘要定时任务（每天 8:00 自动生成 daily digest）
+	// Register daily digest scheduled job (auto-generate daily digest at 8:00)
 	dailyDigestJob := &scheduler.Job{
-		ID:            "daily-digest",
-		Name:          "每日摘要",
-		TriggerType:   scheduler.TriggerCron,
-		GoalTemplate:  "生成今日摘要：总结今天完成的任务、新增的记忆、失败的任务",
-		Priority:      3,
-		Enabled:       true,
-		Concurrency:   "skip",
+		ID:           "daily-digest",
+		Name:         "Daily Digest",
+		TriggerType:  scheduler.TriggerCron,
+		GoalTemplate: "Generate today's digest: summarize completed tasks, new memories, failed tasks",
+		Priority:     3,
+		Enabled:      true,
+		Concurrency:  "skip",
 	}
 	_ = sched.CreateJob(dailyDigestJob)
 
-	// 启动 FileWatcher 触发器（监听 file_watch 类型的 job）
+	// Start FileWatcher trigger (listen for file_watch type jobs)
 	fileWatcher := scheduler.NewFileWatcher(sched, logger)
 	if fileWatcher != nil {
 		for path := range sched.FileWatchTargets() {
@@ -263,7 +263,7 @@ func (p *program) Stop(s service.Service) error {
 	return nil
 }
 
-// Run 前台运行
+// Run runs the service in foreground mode
 func Run() error {
 	var err error
 	logger, err = observability.Init(config.Get().Observability.LogFile, config.Get().Observability.LogLevel)
