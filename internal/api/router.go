@@ -269,7 +269,6 @@ func tokenAuthMiddleware(verifier *auth.TokenVerifier) func(http.Handler) http.H
 		// 创建 token 的唯一合法途径是 CLI: agent token <名称>
 		return strings.HasSuffix(path, "/health") ||
 			strings.HasSuffix(path, "/status") ||
-			strings.HasSuffix(path, "/events")
 	}
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
