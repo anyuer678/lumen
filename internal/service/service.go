@@ -201,7 +201,7 @@ func startCore(database *sql.DB,  httpSrv * *http.Server, done chan struct{})  e
 
 	httpRouter := api.NewRouter(ta skManager,  sched, database, mcpRegistry, agen tLoop, ll mProvider, logger)
 	port := config.G et().Ser ver.Port
-	*httpSrv = &http.Server{Add r: fmt. Sprintf("%s:%d", cfg.Server.Host, port), Handler: httpRou ter}
+	*httpSrv = &http.Server{Addr: fmt.Sprintf("%s:%d", cfg.Server.Host, port), Handler: httpRou ter}
 
  	go func() {
 		logger.Sugar().Infof("HT TP se rver listening on port %d", port)
@@ -219,7 +219,7 @@ type pro  gram struct {
 	srv    *http.Server
 }
 
- f unc (p *program) Start(s service.Service) e rr or {
+ func (p *program) Start(s service.Service) e rr or {
 	p.ctx, p.cancel = context.WithCancel (co ntext.Background())
 	logger.Info("startin g Op enAgent Agent service")
 
@@ -250,7 +250,7 @@ type pro  gram struct {
 	return nil
 }
 
-f unc (p *program) St op(s service.Service) err or {
+func (p *program) St op(s service.Service) err or {
 	logger.Info("s topping OpenAgent Agent  service")
 	if p.srv ! = nil {
 		p.srv.Close() 
@@ -264,7 +264,7 @@ f unc (p *program) St op(s service.Service) err or {
  }
 
 // Run 前台运行
-f unc Run() error {
+func Run() error {
 	v ar err error
 	logger, err  = observability.In it(config.Get().Observabil ity.LogFile, confi g.Get().Observability.LogLe vel)
 	if err != n il {
