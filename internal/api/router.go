@@ -1,4 +1,4 @@
-package api
+﻿package api
 
 import (
 	"database/sql"
@@ -31,15 +31,15 @@ func NewRouter(tm *task.Manager, sched *scheduler.Scheduler, db *sql.DB, mcpRegi
 	logger = log
 	r := chi.NewRouter()
 
-	// 中间件
+	// 涓棿浠?
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 	r.Use(corsMiddleware)
 
-	// API 路由（优先级最高）
+	// API 璺敱锛堜紭鍏堢骇鏈€楂橈級
 	r.Route("/v1", func(r chi.Router) {
-		// 除 /health 与 SSE 只读流外的所有端点要求 Bearer token
+		// 闄?/health 涓?SSE 鍙娴佸鐨勬墍鏈夌鐐硅姹?Bearer token
 		if db != nil {
 			verifier := auth.NewTokenVerifier(db)
 			r.Use(tokenAuthMiddleware(verifier))
@@ -48,16 +48,16 @@ func NewRouter(tm *task.Manager, sched *scheduler.Scheduler, db *sql.DB, mcpRegi
 		r.Get("/status", statusHandler)
 		r.Get("/events", SSEHandler(GetBroadcaster()))
 
-		// 任务端点
+		// 浠诲姟绔偣
 		taskHandler := handlers.NewTaskHandler(tm)
 		r.Mount("/tasks", taskHandler.Routes())
 
-		// 定时任务端点
+		// 瀹氭椂浠诲姟绔偣
 		if sched != nil {
 			jobHandler := handlers.NewJobHandler(sched)
 			r.Mount("/jobs", jobHandler.Routes())
 
-			// Webhook 触发器端点
+			// Webhook 瑙﹀彂鍣ㄧ鐐?
 			r.Post("/webhooks/{jobID}", func(w http.ResponseWriter, r *http.Request) {
 				jobID := chi.URLParam(r, "jobID")
 				var payload map[string]interface{}
@@ -74,122 +74,122 @@ func NewRouter(tm *task.Manager, sched *scheduler.Scheduler, db *sql.DB, mcpRegi
 			})
 		}
 
-		// 确认端点
+		// 纭绔偣
 		if db != nil {
 			confirmHandler := handlers.NewConfirmHandler(auth.NewConfirmStore(db))
 			r.Mount("/confirmations", confirmHandler.Routes())
 		}
 
-		// 设置端点
+		// 璁剧疆绔偣
 		settingsHandler := handlers.NewSettingsHandler()
 		r.Mount("/settings", settingsHandler.Routes())
 
-		// 产物端点（截图等 workspace 文件）
+		// 浜х墿绔偣锛堟埅鍥剧瓑 workspace 鏂囦欢锛?
 		if db != nil {
 			artifactsHandler := handlers.NewArtifactsHandler("./data/workspace")
 			r.Mount("/artifacts", artifactsHandler.Routes())
 		}
 
-		// 记忆端点
+		// 璁板繂绔偣
 		if db != nil {
 			memoryHandler := handlers.NewMemoryHandler(memory.NewStore(db))
 			r.Mount("/memories", memoryHandler.Routes())
 		}
 
-		// 审计端点
+		// 瀹¤绔偣
 		if db != nil {
 			auditHandler := handlers.NewAuditHandler(db)
 			r.Mount("/audit", auditHandler.Routes())
 		}
 
-		// MCP 端点
+		// MCP 绔偣
 		if mcpRegistry != nil {
 			mcpHandler := handlers.NewMcpHandler(mcpRegistry)
 			r.Mount("/mcp/servers", mcpHandler.Routes())
 		}
 
-		// Token 端点
+		// Token 绔偣
 		if db != nil {
 			tokenHandler := handlers.NewTokenHandler(db)
 			r.Mount("/auth/token", tokenHandler.Routes())
 		}
 
-		// 工具端点
+		// 宸ュ叿绔偣
 		if agentLoop != nil {
 			toolHandler := handlers.NewToolHandler(agentLoop)
 			r.Mount("/tools", toolHandler.Routes())
 		}
 
-		// 聊天端点
+		// 鑱婂ぉ绔偣
 		if db != nil {
 			chatHandler := handlers.NewChatHandler(db, logger, agentLoop, llmProvider)
 			r.Mount("/chat", chatHandler.Routes())
 		}
 
-		// Token 用量追踪端点
+		// Token 鐢ㄩ噺杩借釜绔偣
 		if db != nil {
 			tokenUsageHandler := handlers.NewTokenUsageHandler(db)
 			r.Mount("/token-usage", tokenUsageHandler.Routes())
 		}
 
-		// 事件总线端点
+		// 浜嬩欢鎬荤嚎绔偣
 		if db != nil {
 			eventHandler := handlers.NewEventHandler(db)
 			r.Mount("/events", eventHandler.Routes())
 		}
 
-		// Daily Digest 端点
+		// Daily Digest 绔偣
 		if db != nil {
 			digestHandler := handlers.NewDigestHandler(db)
 			r.Mount("/digest", digestHandler.Routes())
 		}
 
-		// Workflow 工作流端点
+		// Workflow 宸ヤ綔娴佺鐐?
 		if db != nil {
 			workflowHandler := handlers.NewWorkflowHandler(db)
 			r.Mount("/workflows", workflowHandler.Routes())
 		}
 
-		// 轨迹回放端点
+		// 杞ㄨ抗鍥炴斁绔偣
 		trajHandler := handlers.NewTrajectoryHandler()
 		r.Mount("/trajectories", trajHandler.Routes())
 
-		// 追踪记录端点（Agent Trace）
+		// 杩借釜璁板綍绔偣锛圓gent Trace锛?
 		traceHandler := handlers.NewTraceHandler(log)
 		r.Mount("/traces", traceHandler.Routes())
 
-		// 视觉分析端点（截图→视觉模型→UI 理解）
+		// 瑙嗚鍒嗘瀽绔偣锛堟埅鍥锯啋瑙嗚妯″瀷鈫扷I 鐞嗚В锛?
 		if llmProvider != nil {
 			visionHandler := handlers.NewVisionHandler(llmProvider, log)
 			r.Mount("/vision", visionHandler.Routes())
 		}
 
-		// 知识库端点
+		// 鐭ヨ瘑搴撶鐐?
 		if db != nil {
 			kbHandler := handlers.NewKBHandler(db)
 			r.Mount("/knowledge", kbHandler.Routes())
 		}
 
-		// 用户画像端点（Memory 2.0 Reflection）
+		// 鐢ㄦ埛鐢诲儚绔偣锛圡emory 2.0 Reflection锛?
 		if db != nil {
 			profileHandler := handlers.NewProfileHandler(db, log)
 			r.Mount("/profiles", profileHandler.Routes())
 		}
 
-		// 记忆生命周期端点
+		// 璁板繂鐢熷懡鍛ㄦ湡绔偣
 		if db != nil {
 			lifecycleHandler := handlers.NewLifecycleHandler(db, log)
 			r.Mount("/lifecycle", lifecycleHandler.Routes())
 		}
 
-		// 记忆质量评分端点
+		// 璁板繂璐ㄩ噺璇勫垎绔偣
 		if db != nil {
 			msHandler := handlers.NewMemoryScoreHandler(db, log)
 			r.Mount("/memory-score", msHandler.Routes())
 		}
 	})
 
-	// 静态文件（前端）- 必须在 API 路由之后
+	// 闈欐€佹枃浠讹紙鍓嶇锛? 蹇呴』鍦?API 璺敱涔嬪悗
 	staticHandler := StaticHandler()
 	r.Get("/*", func(w http.ResponseWriter, r *http.Request) {
 		staticHandler.ServeHTTP(w, r)
@@ -231,7 +231,7 @@ func statusHandler(w http.ResponseWriter, r *http.Request) {
 func corsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		origin := r.Header.Get("Origin")
-		// 只允许本地开发和本机访问（精确匹配 host:port，避免 localhost.evil.com 这类前缀欺骗）
+		// 鍙厑璁告湰鍦板紑鍙戝拰鏈満璁块棶锛堢簿纭尮閰?host:port锛岄伩鍏?localhost.evil.com 杩欑被鍓嶇紑娆洪獥锛?
 		allowed := origin == "" || isLocalOrigin(origin)
 
 		if allowed {
@@ -249,8 +249,8 @@ func corsMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-// isLocalOrigin 精确判断 origin 是否为本机（localhost/127.0.0.1/0.0.0.0）。
-// 用 url.Parse 只比对 host，避免 "http://localhost.evil.com" 这类前缀欺骗。
+// isLocalOrigin 绮剧‘鍒ゆ柇 origin 鏄惁涓烘湰鏈猴紙localhost/127.0.0.1/0.0.0.0锛夈€?
+// 鐢?url.Parse 鍙瘮瀵?host锛岄伩鍏?"http://localhost.evil.com" 杩欑被鍓嶇紑娆洪獥銆?
 func isLocalOrigin(origin string) bool {
 	u, err := url.Parse(origin)
 	if err != nil {
@@ -260,15 +260,15 @@ func isLocalOrigin(origin string) bool {
 	return host == "localhost" || host == "127.0.0.1" || host == "0.0.0.0" || host == "::1"
 }
 
-// tokenAuthMiddleware 校验 /v1 下的 Bearer token。
-// 豁免只读/公开路径：health/status。SSE 事件流（/events）也放行只读展示。
+// tokenAuthMiddleware 鏍￠獙 /v1 涓嬬殑 Bearer token銆?
+// 璞佸厤鍙/鍏紑璺緞锛歨ealth/status銆係SE 浜嬩欢娴侊紙/events锛変篃鏀捐鍙灞曠ず銆?
 func tokenAuthMiddleware(verifier *auth.TokenVerifier) func(http.Handler) http.Handler {
 	exempt := func(path string) bool {
-		// 仅豁免只读/公开端点；token 管理必须认证，
-		// 否则任何网络客户端都能未授权铸造高权限 token。
-		// 创建 token 的唯一合法途径是 CLI: agent token <名称>
+		// 浠呰眮鍏嶅彧璇?鍏紑绔偣锛泃oken 绠＄悊蹇呴』璁よ瘉锛?
+		// 鍚﹀垯浠讳綍缃戠粶瀹㈡埛绔兘鑳芥湭鎺堟潈閾搁€犻珮鏉冮檺 token銆?
+		// 鍒涘缓 token 鐨勫敮涓€鍚堟硶閫斿緞鏄?CLI: agent token <鍚嶇О>
 		return strings.HasSuffix(path, "/health") ||
-			strings.HasSuffix(path, "/status") ||
+			strings.HasSuffix(path, "/status") 
 	}
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -281,7 +281,7 @@ func tokenAuthMiddleware(verifier *auth.TokenVerifier) func(http.Handler) http.H
 				http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
 				return
 			}
-			// 把 principal 存入 context，供 handler 做权限/归属判断
+			// 鎶?principal 瀛樺叆 context锛屼緵 handler 鍋氭潈闄?褰掑睘鍒ゆ柇
 			next.ServeHTTP(w, r.WithContext(auth.WithPrincipal(r.Context(), principal)))
 		})
 	}
