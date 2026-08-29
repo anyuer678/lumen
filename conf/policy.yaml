@@ -19,7 +19,8 @@ policies:
     min_priority: 3
     action:
       notify: true
-      auto_execute: true
+      # 文件整理涉及移动用户文件，与 task.failed 同口径：需要人工确认后执行
+      auto_execute: false
       tools:
         - fs
 
