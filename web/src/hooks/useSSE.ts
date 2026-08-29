@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { getAuthTokenPublic as getAuthToken } from '../api/client'
 
 interface SSEEvent {
   type: string
@@ -6,8 +7,9 @@ interface SSEEvent {
 }
 
 /**
- * SSE hook：订阅服务端事件流
- * 生产环境直接访问 /v1/events
+ * SSE hook：订阅服务端事件流 /v1/events
+ * EventSource 无法携带自定义头，token 通过 ?token= 查询参数传递；
+ * 未配置 token（认证关闭）时直接连接。
  */
 export function useSSE(onEvent?: (event: SSEEvent) => void) {
   const [connected, setConnected] = useState(false)
@@ -16,7 +18,9 @@ export function useSSE(onEvent?: (event: SSEEvent) => void) {
   handlerRef.current = onEvent
 
   useEffect(() => {
-    const es = new EventSource('/v1/sse')
+    const token = getAuthToken()
+    const url = token ? `/v1/events?token=${encodeURIComponent(token)}` : '/v1/events'
+    const es = new EventSource(url)
 
     es.onopen = () => setConnected(true)
     es.onerror = () => setConnected(false)

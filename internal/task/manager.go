@@ -5,6 +5,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"runtime/debug"
 	"sync"
 	"time"
 
@@ -67,8 +68,10 @@ func (m *Manager) CreateTask(goal string, opts ...Option) (*Task, error) {
 	}
 	t.Status = StatusQueued
 
-	// 入队
+	// 入队（heap.Push 必须持锁：与 Start 的 Pop 并发）
+	m.mu.Lock()
 	heap.Push(m.queue, t)
+	m.mu.Unlock()
 
 	return t, nil
 }
@@ -89,29 +92,49 @@ func (m *Manager) Start() {
 			case <-m.ctx.Done():
 				return
 			default:
-				if m.queue.Len() == 0 {
-					time.Sleep(100 * time.Millisecond)
-					continue
-				}
-
-				// 获取最高优先级任务
-				m.mu.Lock()
-				if m.queue.Len() == 0 {
-					m.mu.Unlock()
-					continue
-				}
-				t := heap.Pop(m.queue).(*Task)
-				m.mu.Unlock()
-
-				// 并发控制
-				m.workerCh <- struct{}{}
-				go func(task *Task) {
-					defer func() { <-m.workerCh }()
-					m.executeTask(task)
-				}(t)
+				m.dispatchOnce()
 			}
 		}
 	}()
+}
+
+// dispatchOnce 单次派发：panic 只损失当次循环，不击穿 24/7 常驻进程
+func (m *Manager) dispatchOnce() {
+	defer func() {
+		if r := recover(); r != nil {
+			m.logger.Errorf("panic in task dispatch: %v\n%s", r, debug.Stack())
+		}
+	}()
+
+	m.mu.Lock()
+	if m.queue.Len() == 0 {
+		m.mu.Unlock()
+		time.Sleep(100 * time.Millisecond)
+		return
+	}
+	t := heap.Pop(m.queue).(*Task)
+	m.mu.Unlock()
+
+	// 并发控制
+	m.workerCh <- struct{}{}
+	go func(task *Task) {
+		defer func() { <-m.workerCh }()
+		// executor.Run 的任何 panic 在此兜底：记日志、落库失败、广播事件
+		defer func() {
+			if r := recover(); r != nil {
+				m.logger.Errorf("panic in task %s: %v\n%s", task.ID, r, debug.Stack())
+				_ = m.store.SetResult(task.ID, "", fmt.Sprintf("internal panic: %v", r))
+				_ = m.store.TransitionStatus(task.ID, StatusFailed, "panic")
+				if m.publisher != nil {
+					m.publisher.Publish("task.failed", map[string]interface{}{
+						"task_id": task.ID,
+						"error":   fmt.Sprintf("internal panic: %v", r),
+					})
+				}
+			}
+		}()
+		m.executeTask(task)
+	}(t)
 }
 
 // Stop 停止所有任务
@@ -157,8 +180,10 @@ func (m *Manager) ResumeTask(id string) error {
 		return err
 	}
 
-	// 重新入队
+	// 重新入队（持锁）
+	m.mu.Lock()
 	heap.Push(m.queue, t)
+	m.mu.Unlock()
 	return nil
 }
 
@@ -204,8 +229,10 @@ func (m *Manager) RetryTask(id string) error {
 		return err
 	}
 
-	// 重新入队
+	// 重新入队（持锁）
+	m.mu.Lock()
 	heap.Push(m.queue, t)
+	m.mu.Unlock()
 	return nil
 }
 

@@ -89,5 +89,9 @@ func extractToken(r *http.Request) string {
 	if t := r.Header.Get("X-API-Token"); t != "" {
 		return strings.TrimSpace(t)
 	}
+	// SSE 的 EventSource 无法携带自定义头，允许 ?token= 查询参数（仅前端事件流使用）
+	if t := r.URL.Query().Get("token"); t != "" {
+		return strings.TrimSpace(t)
+	}
 	return ""
 }

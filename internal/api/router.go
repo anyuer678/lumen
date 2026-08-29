@@ -31,15 +31,15 @@ func NewRouter(tm *task.Manager, sched *scheduler.Scheduler, db *sql.DB, mcpRegi
 	logger = log
 	r := chi.NewRouter()
 
-	// 涓棿浠?
+	// 中间件
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 	r.Use(corsMiddleware)
 
-	// API 璺敱锛堜紭鍏堢骇鏈€楂橈級
+	// API 路由（优先级最高）
 	r.Route("/v1", func(r chi.Router) {
-		// 闄?/health 涓?SSE 鍙娴佸鐨勬墍鏈夌鐐硅姹?Bearer token
+	// 除 /health 与 /status 外的所有端点要求 Bearer token
 		if db != nil {
 			verifier := auth.NewTokenVerifier(db)
 			r.Use(tokenAuthMiddleware(verifier))
@@ -57,7 +57,7 @@ func NewRouter(tm *task.Manager, sched *scheduler.Scheduler, db *sql.DB, mcpRegi
 			jobHandler := handlers.NewJobHandler(sched)
 			r.Mount("/jobs", jobHandler.Routes())
 
-			// Webhook 瑙﹀彂鍣ㄧ鐐?
+		// Webhook 触发器端点
 			r.Post("/webhooks/{jobID}", func(w http.ResponseWriter, r *http.Request) {
 				jobID := chi.URLParam(r, "jobID")
 				var payload map[string]interface{}
@@ -144,7 +144,7 @@ func NewRouter(tm *task.Manager, sched *scheduler.Scheduler, db *sql.DB, mcpRegi
 			r.Mount("/digest", digestHandler.Routes())
 		}
 
-		// Workflow 宸ヤ綔娴佺鐐?
+		// Workflow 工作流端点
 		if db != nil {
 			workflowHandler := handlers.NewWorkflowHandler(db)
 			r.Mount("/workflows", workflowHandler.Routes())
@@ -158,7 +158,7 @@ func NewRouter(tm *task.Manager, sched *scheduler.Scheduler, db *sql.DB, mcpRegi
 		traceHandler := handlers.NewTraceHandler(log)
 		r.Mount("/traces", traceHandler.Routes())
 
-		// 瑙嗚鍒嗘瀽绔偣锛堟埅鍥锯啋瑙嗚妯″瀷鈫扷I 鐞嗚В锛?
+		// 视觉分析端点（截图 -> 视觉模型 -> UI 理解）
 		if llmProvider != nil {
 			visionHandler := handlers.NewVisionHandler(llmProvider, log)
 			r.Mount("/vision", visionHandler.Routes())
@@ -189,7 +189,7 @@ func NewRouter(tm *task.Manager, sched *scheduler.Scheduler, db *sql.DB, mcpRegi
 		}
 	})
 
-	// 闈欐€佹枃浠讹紙鍓嶇锛? 蹇呴』鍦?API 璺敱涔嬪悗
+	// 静态文件（前端）：必须在 API 路由之后
 	staticHandler := StaticHandler()
 	r.Get("/*", func(w http.ResponseWriter, r *http.Request) {
 		staticHandler.ServeHTTP(w, r)
@@ -219,19 +219,33 @@ func statusHandler(w http.ResponseWriter, r *http.Request) {
 		"uptime_sec": int(time.Since(startTime).Seconds()),
 		"heartbeat": observability.IsHeartbeatOK(),
 		"tasks": map[string]interface{}{
-			"queued":   0,
-			"running":  0,
+			"queued":   taskQueueDepth(),
+			"running":  taskRunningCount(),
 			"completed": 0,
 		},
-		"queue_depth": 0,
+		"queue_depth": taskQueueDepth(),
 		"llm_provider": config.Get().LLM.DefaultProvider,
 	})
+}
+
+func taskQueueDepth() int {
+	if taskManager != nil {
+		return taskManager.QueueDepth()
+	}
+	return 0
+}
+
+func taskRunningCount() int {
+	if taskManager != nil {
+		return taskManager.RunningCount()
+	}
+	return 0
 }
 
 func corsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		origin := r.Header.Get("Origin")
-		// 鍙厑璁告湰鍦板紑鍙戝拰鏈満璁块棶锛堢簿纭尮閰?host:port锛岄伩鍏?localhost.evil.com 杩欑被鍓嶇紑娆洪獥锛?
+		// 仅允许本地开发和本机访问（精确匹配 host:port，避免前缀欺骗）
 		allowed := origin == "" || isLocalOrigin(origin)
 
 		if allowed {
@@ -249,8 +263,8 @@ func corsMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-// isLocalOrigin 绮剧‘鍒ゆ柇 origin 鏄惁涓烘湰鏈猴紙localhost/127.0.0.1/0.0.0.0锛夈€?
-// 鐢?url.Parse 鍙瘮瀵?host锛岄伩鍏?"http://localhost.evil.com" 杩欑被鍓嶇紑娆洪獥銆?
+// isLocalOrigin 精确判断 origin 是否为本机（localhost/127.0.0.1/0.0.0.0）。
+// 用 url.Parse 只比对 host，避免 "http://localhost.evil.com" 这类前缀欺骗。
 func isLocalOrigin(origin string) bool {
 	u, err := url.Parse(origin)
 	if err != nil {
@@ -260,13 +274,11 @@ func isLocalOrigin(origin string) bool {
 	return host == "localhost" || host == "127.0.0.1" || host == "0.0.0.0" || host == "::1"
 }
 
-// tokenAuthMiddleware 鏍￠獙 /v1 涓嬬殑 Bearer token銆?
-// 璞佸厤鍙/鍏紑璺緞锛歨ealth/status銆係SE 浜嬩欢娴侊紙/events锛変篃鏀捐鍙灞曠ず銆?
+// tokenAuthMiddleware 校验 /v1 下的 Bearer token，豁免 /health 与 /status。
+// SSE 事件流（/events）同样要求认证：前端经 ?token= 查询参数传递。
 func tokenAuthMiddleware(verifier *auth.TokenVerifier) func(http.Handler) http.Handler {
 	exempt := func(path string) bool {
-		// 浠呰眮鍏嶅彧璇?鍏紑绔偣锛泃oken 绠＄悊蹇呴』璁よ瘉锛?
-		// 鍚﹀垯浠讳綍缃戠粶瀹㈡埛绔兘鑳芥湭鎺堟潈閾搁€犻珮鏉冮檺 token銆?
-		// 鍒涘缓 token 鐨勫敮涓€鍚堟硶閫斿緞鏄?CLI: agent token <鍚嶇О>
+		// 仅豁免只读公开端点；token 管理必须认证
 		return strings.HasSuffix(path, "/health") ||
 			strings.HasSuffix(path, "/status") 
 	}
@@ -281,7 +293,7 @@ func tokenAuthMiddleware(verifier *auth.TokenVerifier) func(http.Handler) http.H
 				http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
 				return
 			}
-			// 鎶?principal 瀛樺叆 context锛屼緵 handler 鍋氭潈闄?褰掑睘鍒ゆ柇
+			// 把 principal 存入 context，供 handler 做权限/归属判断
 			next.ServeHTTP(w, r.WithContext(auth.WithPrincipal(r.Context(), principal)))
 		})
 	}

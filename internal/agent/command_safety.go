@@ -89,6 +89,11 @@ func classifySingleCommand(command string) CommandClass {
 	// 先拆开 shell 包装器
 	inner := extractInnerCommand(cmd)
 	lower := strings.ToLower(inner)
+	// 编码式 PowerShell（-e/-ec/-enc/-EncodedCommand）的载荷无法静态分析，
+	// base64 可携带任意指令，一律按破坏性处理
+	if looksLikeEncodedPowerShell(lower) {
+		return CommandDestructive
+	}
 	// 检查破坏性
 	for _, v := range destructiveVerbs {
 		if strings.HasPrefix(lower, v) {
@@ -102,6 +107,39 @@ func classifySingleCommand(command string) CommandClass {
 		}
 	}
 	return CommandReadWrite
+}
+
+// looksLikeEncodedPowerShell 识别编码式 PowerShell 调用。
+// 已知 -e* 合法长旗标（-ErrorAction/-ErrorVariable/-ExecutionPolicy/-Exit）不误伤。
+func looksLikeEncodedPowerShell(lower string) bool {
+	if !strings.HasPrefix(lower, "powershell") && !strings.HasPrefix(lower, "pwsh") {
+		return false
+	}
+	rest := strings.TrimPrefix(strings.TrimPrefix(lower, "powershell"), "pwsh")
+	knownEFlags := map[string]bool{
+		"-erroraction": true, "-errorvariable": true, "-executionpolicy": true, "-exit": true,
+	}
+	for _, f := range strings.Fields(rest) {
+		if !strings.HasPrefix(f, "-e") {
+			continue
+		}
+		switch f {
+		case "-e", "-ec", "-enc", "-encoded", "-encodedcommand":
+			return true
+		}
+		if knownEFlags[f] {
+			continue
+		}
+		// -encodedcommand<base64> 紧贴形式
+		if strings.HasPrefix(f, "-encodedcommand") && len(f) > len("-encodedcommand") {
+			return true
+		}
+		// -e<base64> 紧贴形式（排除上面的已知合法旗标）
+		if len(f) > 2 {
+			return true
+		}
+	}
+	return false
 }
 // ClassifyCommand classifies command as read-only, read-write, or destructive.
 // Splits by shell operators and classifies each segment; worst segment wins.

@@ -201,10 +201,16 @@ func startCore(database *sql.DB, httpSrv **http.Server, done chan struct{}) erro
 
 	httpRouter := api.NewRouter(taskManager, sched, database, mcpRegistry, agentLoop, llmProvider, logger)
 	port := config.Get().Server.Port
-	*httpSrv = &http.Server{Addr: fmt.Sprintf(":%d", port), Handler: httpRouter}
+	// 监听地址必须尊重配置的 host（默认 127.0.0.1）；"|%d" 会监听全部网卡，
+	// 曾使 /v1/events 暴露给局域网 —— 修复回潮的教训：改动后必须回归测试。
+	host := config.Get().Server.Host
+	if host == "" {
+		host = "127.0.0.1"
+	}
+	*httpSrv = &http.Server{Addr: fmt.Sprintf("%s:%d", host, port), Handler: httpRouter}
 
 	go func() {
-		logger.Sugar().Infof("HTTP server listening on port %d", port)
+		logger.Sugar().Infof("HTTP server listening on %s:%d", host, port)
 		if err := (*httpSrv).ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			logger.Sugar().Errorf("HTTP server error: %v", err)
 		}
