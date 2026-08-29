@@ -52,3 +52,8 @@ mytoken
 tmp/
 temp/
 *.tmp
+
+# benchmark 运行产物（benchmark 命令现在写入临时目录）
+BENCHMARK_REPORT.md
+BENCHMARK_V2_REPORT.json
+BENCHMARK_V3_REPORT.json
