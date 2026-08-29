@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "postbuild": "node -e \"const fs=require('fs');fs.rmSync('../internal/api/static',{recursive:true,force:true});fs.cpSync('dist','../internal/api/static',{recursive:true});console.log('static synced to internal/api/static')\""
   },
   "dependencies": {
     "react": "^18.2.0",
