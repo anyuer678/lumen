@@ -14,5 +14,14 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      # 前端必须构建：tsc 错误曾带病入主干而 CI 全绿
+      - name: Build web frontend
+        run: |
+          cd web
+          npm ci
+          npm run build
       - run: go vet ./...
       - run: go test ./...
