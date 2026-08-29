@@ -9,6 +9,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"agent/internal/agent"
@@ -166,23 +167,29 @@ func runBenchmark() error {
 	fmt.Println("运行测试套件，找出真实失败点...")
 	fmt.Println()
 
-	db, err := initDB()
+	tmpDir, err := os.MkdirTemp("", "lumen-bench-*")
+	if err != nil {
+		return fmt.Errorf("create temp dir: %w", err)
+	}
+	defer os.RemoveAll(tmpDir)
+	db, err := agentDB.Init(filepath.Join(tmpDir, "bench.db"))
 	if err != nil {
 		return fmt.Errorf("init db: %w", err)
 	}
 	defer db.Close()
+	fmt.Println("（隔离运行：临时数据库 " + tmpDir + "）")
 
 	loop := initLoop(db)
 
 	if benchVersion == "v1" {
-		report, err := agent.RunBenchmark(context.Background(), loop, "BENCHMARK_REPORT.md", mode)
+		report, err := agent.RunBenchmark(context.Background(), loop, filepath.Join(tmpDir, "BENCHMARK_REPORT.md"), mode)
 		if err != nil {
 			return err
 		}
 		fmt.Printf("\n=== v1 完成 ===\n")
 		fmt.Printf("通过: %d/%d (%.0f%%)\n", report.Passed, report.Total, float64(report.Passed)*100/float64(report.Total))
 	} else if benchVersion == "v2" {
-		report, err := agent.RunBenchmarkV2(context.Background(), loop, "BENCHMARK_V2_REPORT.md", mode)
+		report, err := agent.RunBenchmarkV2(context.Background(), loop, filepath.Join(tmpDir, "BENCHMARK_V2_REPORT.md"), mode)
 		if err != nil {
 			return err
 		}
@@ -193,7 +200,7 @@ func runBenchmark() error {
 	} else {
 		// v3: 使用 v2 runner 但 v3 测试套件
 		// 暂时先用 v2 runner + v3 套件数量
-		report, err := agent.RunBenchmarkV3(context.Background(), loop, "BENCHMARK_V3_REPORT.md", mode)
+		report, err := agent.RunBenchmarkV3(context.Background(), loop, filepath.Join(tmpDir, "BENCHMARK_V3_REPORT.md"), mode)
 		if err != nil {
 			return err
 		}

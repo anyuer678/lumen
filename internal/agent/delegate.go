@@ -88,6 +88,13 @@ func (l *Loop) runSubagent(ctx context.Context, objective string) (*ToolResult, 
 			return nil, subCtx.Err()
 		default:
 		}
+		// 权限闸门：子代理无法发起交互确认，策略要求确认/拒绝的步骤一律拦截。
+		// 此前直接 RunTool 会绕过主循环的确认流（computer/mcp/fs:delete 可静默执行）。
+		if d := l.checkToolPermission(subCtx, step.Tool, step.Args); !d.Allowed {
+			sb.WriteString(fmt.Sprintf("[步骤%d %s: 被权限策略拒绝（%s）——如需执行请在主计划中申请确认]\n",
+				i+1, step.Tool, d.Reason))
+			continue
+		}
 		res, err := l.RunTool(subCtx, step.Tool, step.Args)
 		if err != nil {
 			sb.WriteString(fmt.Sprintf("[步骤%d %s: 失败 %v]\n", i+1, step.Tool, err))
