@@ -14,7 +14,7 @@
   <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/License-MIT-blue.svg"></a>
   <img alt="Go" src="https://img.shields.io/badge/Go-1.26-00ADD8">
   <img alt="Frontend" src="https://img.shields.io/badge/React-18-61dafb">
-  <img alt="Tests" src="https://img.shields.io/badge/tests-38%20passed-brightgreen">
+  <img alt="Tests" src="https://img.shields.io/badge/tests-46%20passed-brightgreen">
 </p>
 
 ---
@@ -57,22 +57,32 @@ go build -o lumen ./cmd/agent
 
 - **Backend**: Go 1.26 + chi + SQLite (WAL)
 - **Frontend**: React 18 + TypeScript + Vite
-- **Testing**: go test (38 tests)
+- **Testing**: go test (46 tests)
 
 ## Project Structure
 
 ```
 cmd/agent/          CLI 入口
 internal/
-  agent/            Agent 核心循环
-  api/              HTTP API handlers
-  auth/             Token 认证
-  llm/              LLM 调用封装
-  tools/            工具执行（沙箱、命令安全）
-  memory/           记忆存储与评分
-  scheduler/        定时任务
+  agent/            Agent 核心循环（loop、planner、feedback、checkpoint）
+  api/              HTTP API + 静态资源托管
+    handlers/       REST handlers
+    static/         前端构建产物
+  auth/             Token 认证与权限策略
+  config/           配置加载与校验
+  contextmgr/       上下文预算管理（token 估算、压缩提示）
+  db/               SQLite 持久化（WAL 模式）
+  llm/              LLM 调用封装（多模型路由、成本追踪）
+  memory/           长期记忆存储、用户画像、记忆评分
+  observability/    审计日志与可观测性
+  scheduler/        定时任务调度
+  service/          Windows 服务生命周期管理
+  task/             DAG 工作流引擎
+  toolrepair/       LLM 工具调用输出修复
+  trajectory/       任务轨迹记录
+  vision/           截图分析（多模态）
 web/                React 前端
-conf/               配置文件
+conf/               配置文件（config.yaml.example）
 ```
 
 ## License

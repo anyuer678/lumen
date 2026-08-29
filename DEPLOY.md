@@ -70,6 +70,8 @@ server:
 service:
   name: "openagent-agent"
   display_name: "OpenAgent Agent Service"
+  # 注意：服务名沿用旧代号 openagent-agent，重装时自动更新。
+  # Windows 服务改名需先 uninstall 再 install，超出本项目范围。
 
 db:
   path: "./data/agent.db"
