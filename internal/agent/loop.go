@@ -413,6 +413,25 @@ func containsChinese(s string) bool {
 	return false
 }
 
+// checkToolPermission 用 PermissionEngine 策略表判定工具权限。
+// 键为 tool[:action]（args.action 存在时拼上，覆盖 fs.delete/windows.launch 等
+// action 分发工具）；策略未命中默认 fail-closed（L2 需确认）。
+// principal 缺失（后台任务）按 Level1Normal 处理。
+func (l *Loop) checkToolPermission(ctx context.Context, tool string, args map[string]any) auth.PermissionDecision {
+	if l.permEngine == nil {
+		return auth.PermissionDecision{Allowed: true, Level: auth.Level0ReadOnly}
+	}
+	permKey := tool
+	if action, ok := args["action"].(string); ok && action != "" {
+		permKey = tool + ":" + action
+	}
+	userLevel := auth.Level1Normal
+	if p := auth.PrincipalFromContext(ctx); p != nil {
+		userLevel = auth.PermissionLevel(p.PermLevel)
+	}
+	return l.permEngine.Check(strings.ReplaceAll(permKey, ".", ":"), userLevel)
+}
+
 // RunTool 运行指定工具
 func (l *Loop) RunTool(ctx context.Context, name string, args map[string]any) (*ToolResult, error) {
 	tool, ok := l.tools[name]
@@ -577,20 +596,19 @@ func (l *Loop) Run(ctx context.Context, t *task.Task) error {
 			"description": step.Description, "tool": step.Tool,
 		})
 
-		// 权限检查：检查工具是否需要确认
-		// 用户默认为 Level1Normal（agent 自身权限）
+		// 权限检查：PermissionEngine 策略表判定（键 = tool[:action]）。
+		// 用户默认 Level1Normal（任务经 task manager 后台运行，principal 不入库）；
+		// 策略等级 >= L2 且用户不足时进入确认流，直接拒绝则失败该步。
 		if l.permEngine != nil {
-			toolRequiredLevel := auth.Level1Normal
-			if tool, ok := l.tools[step.Tool]; ok {
-				toolRequiredLevel = auth.PermissionLevel(tool.RequiredLevel())
+			decision := l.checkToolPermission(ctx, step.Tool, step.Args)
+			if !decision.Allowed && !decision.NeedConfirm {
+				l.logger.Warnf("agent loop: task %s step %d denied by policy: %s", t.ID, i+1, decision.Reason)
+				l.store.SetResult(t.ID, "", decision.Reason)
+				return fmt.Errorf("step %d denied: %s", i+1, decision.Reason)
 			}
-			// 工具需要 L2+ 确认时，才需要人工确认
-			if toolRequiredLevel >= auth.Level2Dangerous {
-				l.logger.Infof("agent loop: task %s step %d requires confirmation for %s (level=%d)", t.ID, i+1, step.Tool, toolRequiredLevel)
-				approved, err := l.waitForConfirmation(ctx, t, &step, i, auth.PermissionDecision{
-					Level: toolRequiredLevel,
-					Reason: fmt.Sprintf("tool %s requires level %d confirmation", step.Tool, toolRequiredLevel),
-				})
+			if decision.NeedConfirm {
+				l.logger.Infof("agent loop: task %s step %d requires confirmation for %s (level=%d)", t.ID, i+1, step.Tool, decision.Level)
+				approved, err := l.waitForConfirmation(ctx, t, &step, i, decision)
 				if err != nil {
 					l.logger.Warnf("confirmation error: %v, skipping step", err)
 					continue

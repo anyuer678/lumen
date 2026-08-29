@@ -42,19 +42,25 @@ func NewPermissionEngine() *PermissionEngine {
 	}
 }
 
-// defaultPolicies 默认策略
+// defaultPolicies 默认策略。
+// 键为 tool[:action]（action 由调用方从 args 取出拼上），
+// 与真实工具注册表对齐：fs/windows 是单工具多 action 分发。
 func defaultPolicies() []Policy {
 	return []Policy{
 		{Pattern: "shell:*", Level: Level1Normal},
 		{Pattern: "shell:install", Level: Level2Dangerous},
 		{Pattern: "shell:admin", Level: Level3Critical},
 		{Pattern: "fs:*", Level: Level1Normal},
-		{Pattern: "fs:delete", Level: Level2Dangerous},
+		{Pattern: "fs:delete", Level: Level2Dangerous}, // os.RemoveAll
 		{Pattern: "browser:*", Level: Level0ReadOnly},
 		{Pattern: "browser:download", Level: Level1Normal},
-		{Pattern: "system:*", Level: Level2Dangerous},
-		{Pattern: "system:critical", Level: Level3Critical},
+		{Pattern: "system:*", Level: Level1Normal},
+		{Pattern: "windows:*", Level: Level1Normal},
+		{Pattern: "windows:launch", Level: Level2Dangerous}, // 启动外部程序
+		{Pattern: "computer:*", Level: Level2Dangerous},     // 键鼠控制
 		{Pattern: "mcp:*", Level: Level2Dangerous},
+		{Pattern: "subagent", Level: Level1Normal},
+		{Pattern: "safety:*", Level: Level0ReadOnly},
 	}
 }
 
@@ -63,13 +69,20 @@ func (e *PermissionEngine) Check(tool string, userLevel PermissionLevel) Permiss
 	e.mu.RLock()
 	defer e.mu.RUnlock()
 
-	// 查找匹配的策略
-	var matchedLevel PermissionLevel = Level2Dangerous // 默认 fail-closed
-	for _, policy := range e.policies {
-		if matchPattern(tool, policy.Pattern) {
-			matchedLevel = policy.Level
-			break
+	// 查找匹配的策略：最具体（最长 pattern）优先，
+	// 否则 "fs:*"(L1) 会按声明顺序先于 "fs:delete"(L2) 命中，架空细化策略
+	var matched *Policy
+	for i := range e.policies {
+		p := &e.policies[i]
+		if matchPattern(tool, p.Pattern) {
+			if matched == nil || len(p.Pattern) > len(matched.Pattern) {
+				matched = p
+			}
 		}
+	}
+	var matchedLevel PermissionLevel = Level2Dangerous // 默认 fail-closed
+	if matched != nil {
+		matchedLevel = matched.Level
 	}
 
 	// 判定
