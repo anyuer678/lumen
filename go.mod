@@ -6,7 +6,7 @@ require (
 	github.com/chromedp/chromedp v0.16.0
 	github.com/fsnotify/fsnotify v1.10.1
 	github.com/glebarez/go-sqlite v1.22.0
-	github.com/go-chi/chi/v5 v5.2.4
+	github.com/go-chi/chi/v5 v5.3.0
 	github.com/google/uuid v1.5.0
 	github.com/kardianos/service v1.2.2
 	go.uber.org/zap v1.27.0
