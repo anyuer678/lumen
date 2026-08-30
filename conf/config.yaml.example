@@ -81,9 +81,10 @@ browser:
 mcp:
     servers:
         # pgi —— Personal GitHub Intelligence（理解仓库的 memory 工具）
+        # 启用示例：取消注释，并把 db 路径改成你的实际路径
         # - name: pgi
         #   command: python
-        #   args: ["-m", "pgi", "mcp", "--db", "C:\\Users\\<user>\\.pgi\\pgi.db"]
+        #   args: ["-m", "pgi.mcp_server", "--db", "C:\\Users\\<user>\\.pgi\\pgi.db"]
         #   transport: stdio
 
 
