@@ -157,6 +157,20 @@ var ToolSchemas = map[string]ToolDef{
 		SideEffect: false,
 		Risk:       "low",
 	},
+	"fs.grep": {
+		Name:        "fs.grep",
+		Description: "在工作区内正则搜索文本文件，返回匹配行",
+		Parameters: map[string]ParameterDef{
+			"pattern":    {Type: "string", Required: true, Description: "正则表达式"},
+			"path":       {Type: "string", Description: "搜索相对路径（默认 .）"},
+			"max_results": {Type: "number", Default: 50, Description: "最大返回条数"},
+		},
+		Required:   []string{"pattern"},
+		Permission: 0,
+		Timeout:    30,
+		SideEffect: false,
+		Risk:       "low",
+	},
 	"browser.read": {
 		Name:        "browser.read",
 		Description: "读取网页内容",
