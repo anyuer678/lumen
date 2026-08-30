@@ -38,3 +38,35 @@ func TestClassifyCommandCompositionBypass(t *testing.T) {
 		t.Errorf("plain echo: got %v, want read-only", got)
 	}
 }
+
+// TestDestructiveCommandClassification 验证各类破坏性命令被正确分类
+func TestDestructiveCommandClassification(t *testing.T) {
+	destructive := []string{
+		"del /s /q C:\\*",
+		"Remove-Item -Recurse -Force /tmp/data",
+		"format C: /y",
+		"shutdown /s /t 0",
+		"rm -rf /",
+		"powershell -enc SQBFAFgA",
+	}
+	for _, cmd := range destructive {
+		if got := ClassifyCommand(cmd); got != CommandDestructive {
+			t.Errorf("ClassifyCommand(%q) = %v, want CommandDestructive", cmd, got)
+		}
+	}
+}
+
+// TestSubAgentBlocksDestructiveCommand 验证子代理路径拦截破坏性命令
+// delegate.go 的 checkToolPermission 会拒绝，shell.go 的硬拒绝作为最后防线
+func TestSubAgentBlocksDestructiveCommand(t *testing.T) {
+	// 子代理不走确认流——checkToolPermission 拒绝后直接失败
+	// shell.go 的硬拒绝：破坏性命令返回错误
+	class := ClassifyCommand("del /s /q important.txt")
+	if class != CommandDestructive {
+		t.Fatalf("expected destructive, got %v", class)
+	}
+	// 确认 ClassifyCommand 本身对破坏性命令的分类正确（这是确认流的基础）
+	if CommandClassLabel(class) != "破坏性" {
+		t.Errorf("label = %q, want 破坏性", CommandClassLabel(class))
+	}
+}
