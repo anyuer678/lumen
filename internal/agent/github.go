@@ -13,15 +13,17 @@ import (
 
 // GitHubTool GitHub 集成工具：只读操作，查看仓库和活动
 type GitHubTool struct {
-	token  string
-	client *http.Client
+	token   string
+	client  *http.Client
+	baseURL string // 可注入（测试用 httptest）；默认 GitHub 公网 API
 }
 
 // NewGitHubTool 创建 GitHub 工具
 func NewGitHubTool() *GitHubTool {
 	return &GitHubTool{
-		token:  os.Getenv("GITHUB_TOKEN"),
-		client: &http.Client{Timeout: 10 * time.Second},
+		token:   os.Getenv("GITHUB_TOKEN"),
+		client:  &http.Client{Timeout: 10 * time.Second},
+		baseURL: "https://api.github.com",
 	}
 }
 
@@ -45,7 +47,7 @@ func (t *GitHubTool) Execute(ctx context.Context, args map[string]any) (*ToolRes
 func (t *GitHubTool) listRepos(args map[string]any) (*ToolResult, error) {
 	filter, _ := args["filter"].(string)
 
-	url := "https://api.github.com/user/repos?per_page=100&sort=updated"
+	url := t.baseURL + "/user/repos?per_page=100&sort=updated"
 	body, rateInfo, err := t.doGet(url)
 	if err != nil {
 		return nil, fmt.Errorf("github repos: %w", err)
@@ -112,7 +114,7 @@ func (t *GitHubTool) getActivity(args map[string]any) (*ToolResult, error) {
 	since := time.Now().AddDate(0, 0, -days).Format(time.RFC3339)
 
 	// 查询 commits
-	commitsURL := fmt.Sprintf("https://api.github.com/repos/%s/commits?since=%s&per_page=30", repo, since)
+	commitsURL := fmt.Sprintf("%s/repos/%s/commits?since=%s&per_page=30", t.baseURL, repo, since)
 	commitsBody, _, err := t.doGet(commitsURL)
 	if err != nil {
 		return nil, fmt.Errorf("github activity commits: %w", err)
@@ -130,7 +132,7 @@ func (t *GitHubTool) getActivity(args map[string]any) (*ToolResult, error) {
 	json.Unmarshal(commitsBody, &commits)
 
 	// 查询 issues
-	issuesURL := fmt.Sprintf("https://api.github.com/repos/%s/issues?since=%s&state=all&per_page=30", repo, since)
+	issuesURL := fmt.Sprintf("%s/repos/%s/issues?since=%s&state=all&per_page=30", t.baseURL, repo, since)
 	issuesBody, _, err := t.doGet(issuesURL)
 	if err != nil {
 		return nil, fmt.Errorf("github activity issues: %w", err)

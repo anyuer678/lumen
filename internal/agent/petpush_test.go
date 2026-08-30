@@ -1,12 +1,14 @@
 package agent
 
 import (
+	"fmt"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 func TestPetPush_NormalPush(t *testing.T) {
@@ -48,7 +50,11 @@ func TestPetPush_NormalPush(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	// postEvent 是 goroutine，给一点时间
+	// postEvent 在 goroutine 中异步执行，轮询等待送达
+	deadline := time.Now().Add(2 * time.Second)
+	for received == nil && time.Now().Before(deadline) {
+		time.Sleep(10 * time.Millisecond)
+	}
 	if received == nil {
 		t.Error("expected to receive event, got nil")
 	}
