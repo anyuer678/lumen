@@ -125,6 +125,21 @@ func (s *Store) ListTasks(status string, page, limit int) ([]*Task, int, error) 
 	return tasks, total, nil
 }
 
+// CountTasks 统计指定状态的任务数量
+func (s *Store) CountTasks(status string) (int, error) {
+	var total int
+	query := "SELECT COUNT(*) FROM tasks"
+	args := []interface{}{}
+	if status != "" {
+		query += " WHERE status = ?"
+		args = append(args, status)
+	}
+	if err := s.db.QueryRow(query, args...).Scan(&total); err != nil {
+		return 0, fmt.Errorf("count tasks: %w", err)
+	}
+	return total, nil
+}
+
 // TransitionStatus 状态转移
 func (s *Store) TransitionStatus(id string, newStatus TaskStatus, reason string) error {
 	t, err := s.GetTask(id)

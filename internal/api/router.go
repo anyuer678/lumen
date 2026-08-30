@@ -212,6 +212,10 @@ func healthHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func statusHandler(w http.ResponseWriter, r *http.Request) {
+	completedCount := 0
+	if taskManager != nil {
+		completedCount = taskManager.CompletedCount()
+	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"status":    "running",
@@ -219,9 +223,9 @@ func statusHandler(w http.ResponseWriter, r *http.Request) {
 		"uptime_sec": int(time.Since(startTime).Seconds()),
 		"heartbeat": observability.IsHeartbeatOK(),
 		"tasks": map[string]interface{}{
-			"queued":   taskQueueDepth(),
-			"running":  taskRunningCount(),
-			"completed": 0,
+			"queued":    taskQueueDepth(),
+			"running":   taskRunningCount(),
+			"completed": completedCount,
 		},
 		"queue_depth": taskQueueDepth(),
 		"llm_provider": config.Get().LLM.DefaultProvider,
