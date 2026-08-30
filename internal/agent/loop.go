@@ -905,6 +905,7 @@ func (l *Loop) registerBuiltinTools() {
 	}
 	l.RegisterTool(&ShellTool{sandbox: sandbox})
 	l.RegisterTool(NewFilesystemTool("./data/workspace", sandbox))
+	l.RegisterTool(NewFileGrepTool("./data/workspace", sandbox))
 	l.RegisterTool(NewBrowserTool("./data/browser-profile", false))
 	l.RegisterTool(NewSystemTool())
 	l.RegisterTool(&delegateTool{l: l}) // 子代理委派
