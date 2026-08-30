@@ -78,6 +78,13 @@ browser:
     headful: true
     user_data_dir: ./data/browser-profile
     proxy_socks5: ""
+mcp:
+    servers:
+        # pgi —— Personal GitHub Intelligence（理解仓库的 memory 工具）
+        # - name: pgi
+        #   command: python
+        #   args: ["-m", "pgi", "mcp", "--db", "C:\\Users\\<user>\\.pgi\\pgi.db"]
+        #   transport: stdio
 
 
 

@@ -69,6 +69,18 @@ type Config struct {
 		UserDataDir string `yaml:"user_data_dir"`
 		ProxySocks5 string `yaml:"proxy_socks5"`
 	} `yaml:"browser"`
+
+	MCP struct {
+		Servers []McpServerConfig `yaml:"servers"`
+	} `yaml:"mcp"`
+}
+
+// McpServerConfig MCP 服务器配置（对应 pgi 等外部工具）
+type McpServerConfig struct {
+	Name      string   `yaml:"name"`
+	Command   string   `yaml:"command"`
+	Args      []string `yaml:"args"`
+	Transport string   `yaml:"transport"`
 }
 
 type LLMProvider struct {

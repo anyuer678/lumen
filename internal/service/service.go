@@ -109,6 +109,21 @@ func startCore(database *sql.DB, httpSrv **http.Server, done chan struct{}) erro
 
 	// 将已注册的 MCP 工具同步进 Agent Loop（使工具可被 Agent 调用）
 	mcpRegistry.AttachLoop(agentLoop)
+
+	// 启动配置中的 MCP 服务器（容错：启动失败不阻塞 lumen）
+	for _, srv := range config.Get().MCP.Servers {
+		mcpSrv := agent.McpServer{
+			Name:      srv.Name,
+			Command:   srv.Command,
+			Args:      srv.Args,
+			Transport: srv.Transport,
+		}
+		if err := mcpRegistry.Register(context.Background(), mcpSrv); err != nil {
+			logger.Sugar().Warnf("[mcp] failed to register %s: %v — skipping", srv.Name, err)
+		} else {
+			logger.Sugar().Infof("[mcp] registered %s", srv.Name)
+		}
+	}
 	// 注入知识库（Agent 规划时检索）
 	agentLoop.SetKnowledgeBase(memory.NewKBStore(database))
 	// 注入视觉分析器（截图后自动分析 UI）
