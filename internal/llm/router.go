@@ -102,3 +102,13 @@ func (r *Router) GetProvider(name string) Provider {
 func (r *Router) GetDefault() Provider {
 	return r.GetProvider(r.config.Default)
 }
+
+// Config 获取路由器配置
+func (r *Router) Config() RouterConfig {
+	return r.config
+}
+
+// GetAllProviders 获取所有已注册的 provider
+func (r *Router) GetAllProviders() map[string]Provider {
+	return r.providers
+}

@@ -76,6 +76,39 @@ func (l *Loop) SetStepCallback(cb func(eventType string, data map[string]any)) {
 // SetRouter 设置智能路由器
 func (l *Loop) SetRouter(r *llm.Router) {
 	l.router = r
+
+	// 构建回退链：默认 → 简单 → 复杂 → 任意可用
+	if r != nil && l.provider != nil {
+		chain := []llm.Provider{l.provider} // 主 provider（从 config 来）
+		seen := map[string]bool{l.provider.Name(): true}
+
+		// 按路由优先级追加备用
+		priorities := []string{r.Config().Default, r.Config().Simple, r.Config().Complex, r.Config().Vision}
+		for _, name := range priorities {
+			if name == "" || seen[name] {
+				continue
+			}
+			if p := r.GetProvider(name); p != nil {
+				chain = append(chain, p)
+				seen[name] = true
+			}
+		}
+		// 兜底：任意未使用的 provider
+		for name, p := range r.GetAllProviders() {
+			if !seen[name] {
+				chain = append(chain, p)
+				seen[name] = true
+			}
+		}
+
+		if len(chain) > 1 {
+			fallback := llm.NewFallbackProvider(chain...)
+			l.planner = NewLLMPlanner(fallback, l.tools)
+			l.evaluator = NewLLMEvaluator(fallback)
+			l.replanner = NewLLMReplanner(fallback, l.tools)
+			l.logger.Infof("agent loop: fallback chain built: %d providers", len(chain))
+		}
+	}
 }
 
 // SetVisionAnalyzer 将视觉分析器注入 ComputerTool（LLM provider 可用后调用）
