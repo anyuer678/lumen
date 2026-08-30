@@ -353,3 +353,12 @@ func (m *Manager) RunningCount() int {
 	defer m.mu.RUnlock()
 	return len(m.running)
 }
+
+// CompletedCount 已完成任务数
+func (m *Manager) CompletedCount() int {
+	count, err := m.store.CountTasks("completed")
+	if err != nil {
+		return 0
+	}
+	return count
+}
