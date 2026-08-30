@@ -621,6 +621,32 @@ func (l *Loop) Run(ctx context.Context, t *task.Task) error {
 			}
 		}
 
+		// 破坏性命令检测：shell.run 的命令若被 ClassifyCommand 判定为破坏性，
+		// 构造 NeedConfirm 决策走确认流（shell.go 的硬拒绝保留为最后防线）
+		if step.Tool == "shell.run" {
+			if cmd, ok := step.Args["command"].(string); ok {
+				if ClassifyCommand(cmd) == CommandDestructive {
+					l.logger.Infof("agent loop: task %s step %d shell.run destructive, requiring confirmation", t.ID, i+1)
+					confirmDecision := auth.PermissionDecision{
+						Allowed:    false,
+						NeedConfirm: true,
+						Level:      auth.Level2Dangerous,
+						Reason:     fmt.Sprintf("破坏性命令需要确认（分类：%s）", CommandClassLabel(CommandDestructive)),
+					}
+					approved, err := l.waitForConfirmation(ctx, t, &step, i, confirmDecision)
+					if err != nil {
+						l.logger.Warnf("destructive confirmation error: %v, skipping step", err)
+						continue
+					}
+					if !approved {
+						l.logger.Warnf("agent loop: task %s step %d destructive command denied by user", t.ID, i+1)
+						l.store.SetResult(t.ID, "", "破坏性命令被用户拒绝")
+						return fmt.Errorf("step %d denied: destructive command rejected by user", i+1)
+					}
+				}
+			}
+		}
+
 		// 执行步骤（含重试）
 		var lastErr error
 		var lastResult *ToolResult
