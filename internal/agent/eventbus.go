@@ -14,6 +14,7 @@ const (
 	EventFileCreated    EventType = "file.created"
 	EventFileModified   EventType = "file.modified"
 	EventFileDeleted    EventType = "file.deleted"
+	EventTaskStarted    EventType = "task.started"
 	EventTaskFailed     EventType = "task.failed"
 	EventTaskCompleted  EventType = "task.completed"
 	EventScheduleTrigger EventType = "schedule.triggered"
