@@ -171,6 +171,30 @@ var ToolSchemas = map[string]ToolDef{
 		SideEffect: false,
 		Risk:       "low",
 	},
+	"github.repos": {
+		Name:        "github.repos",
+		Description: "列出用户的 GitHub 仓库",
+		Parameters: map[string]ParameterDef{
+			"filter": {Type: "string", Description: "可选关键字过滤（匹配名称和描述）"},
+		},
+		Permission: 0,
+		Timeout:    10,
+		SideEffect: false,
+		Risk:       "low",
+	},
+	"github.activity": {
+		Name:        "github.activity",
+		Description: "查询仓库最近 N 天的 commits/issues 活动",
+		Parameters: map[string]ParameterDef{
+			"repo": {Type: "string", Required: true, Description: "仓库全名（owner/name）"},
+			"days": {Type: "number", Default: 7, Description: "查询天数"},
+		},
+		Required:   []string{"repo"},
+		Permission: 0,
+		Timeout:    10,
+		SideEffect: false,
+		Risk:       "low",
+	},
 	"browser.read": {
 		Name:        "browser.read",
 		Description: "读取网页内容",
