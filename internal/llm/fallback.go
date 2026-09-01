@@ -36,7 +36,16 @@ func (f *FallbackProvider) Name() string {
 func (f *FallbackProvider) Chat(ctx context.Context, messages []Message, tools []ToolDef) (*Response, error) {
 	var lastErr error
 	for i, p := range f.chain {
-		resp, err := p.Chat(ctx, messages, tools)
+		var resp *Response
+		var err error
+		func() {
+			defer func() {
+				if r := recover(); r != nil {
+					err = fmt.Errorf("provider panic: %v", r)
+				}
+			}()
+			resp, err = p.Chat(ctx, messages, tools)
+		}()
 		if err == nil {
 			if i > 0 {
 				// 回退成功——记录切换
