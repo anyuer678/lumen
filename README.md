@@ -14,7 +14,7 @@
   <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/License-MIT-blue.svg"></a>
   <img alt="Go" src="https://img.shields.io/badge/Go-1.26-00ADD8">
   <img alt="Frontend" src="https://img.shields.io/badge/React-18-61dafb">
-  <img alt="Tests" src="https://img.shields.io/badge/tests-46%20passed-brightgreen">
+  <img alt="Tests" src="https://img.shields.io/badge/tests-64%20passed-brightgreen">
 </p>
 
 ---
