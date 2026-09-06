@@ -10,11 +10,12 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"agent/internal/agent"
-	agentDB "agent/internal/db"
 	"agent/internal/config"
+	agentDB "agent/internal/db"
 	"agent/internal/llm"
 	agentLog "agent/internal/observability"
 	"agent/internal/service"
@@ -107,11 +108,26 @@ func loadConfig() error {
 }
 
 // runToken 生成一个 API token 并写入数据库（仅输出一次明文）。
-// 用法：agent token [name]
+// 用法：agent token [name] [--level 0-3]
+// 权限级别：0=只读 1=普通(默认) 2=危险(可批准高危确认) 3=管理员。
+// 此前默认签发 L3/admin token，一个泄漏的 token 即等于无确认的整机控制。
 func runToken() error {
 	name := "default"
-	if len(os.Args) > 2 && !strings.HasPrefix(os.Args[2], "-") {
-		name = os.Args[2]
+	level := 1
+	for i := 2; i < len(os.Args); i++ {
+		arg := os.Args[i]
+		if arg == "--level" && i+1 < len(os.Args) {
+			i++
+			n, err := strconv.Atoi(os.Args[i])
+			if err != nil || n < 0 || n > 3 {
+				return fmt.Errorf("--level 取值须为 0-3 的整数")
+			}
+			level = n
+			continue
+		}
+		if !strings.HasPrefix(arg, "-") && name == "default" {
+			name = arg
+		}
 	}
 
 	if err := loadConfig(); err != nil {
@@ -130,21 +146,29 @@ func runToken() error {
 	tokenStr := "agt_" + hex.EncodeToString(raw)
 	hash := sha256.Sum256([]byte(tokenStr))
 
+	scopes := "tools,chat,tasks,confirm"
+	if level >= 3 {
+		scopes = "admin"
+	} else if level == 0 {
+		scopes = "read"
+	}
+
 	_, err = db.Exec(
 		`INSERT INTO api_tokens (id, name, token_hash, scopes, perm_level, enabled, created_at)
-		 VALUES (?, ?, ?, ?, 3, 1, datetime('now'))`,
+		 VALUES (?, ?, ?, ?, ?, 1, datetime('now'))`,
 		"tok-"+hex.EncodeToString(raw[:4]), name, hex.EncodeToString(hash[:]),
-		"admin")
+		scopes, level)
 	if err != nil {
 		return fmt.Errorf("insert token: %w", err)
 	}
 
-	fmt.Printf("✅ 已创建 API token（名称: %s，仅显示一次）\n", name)
+	fmt.Printf("✅ 已创建 API token（名称: %s，级别 L%d，仅显示一次）\n", name, level)
 	fmt.Printf("   %s\n\n", tokenStr)
 	fmt.Println("使用方式：")
 	fmt.Println("   export LUMEN_TOKEN=\"<token>\"   # 或")
 	fmt.Println("   Authorization: Bearer <token>   # 或")
 	fmt.Println("   X-API-Token: <token>")
+	fmt.Println("级别说明：0=只读 1=普通（默认） 2=危险（可批准 L2 高危确认） 3=管理员（--level 3）")
 	return nil
 }
 

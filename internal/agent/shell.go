@@ -143,9 +143,10 @@ func (t *ShellTool) Execute(ctx context.Context, args map[string]any) (*ToolResu
 		}, fmt.Errorf("command blocked: %s", reason)
 	}
 
-	// 命令安全分类：破坏性命令标记需高权限确认
+	// 命令安全分类：破坏性命令需高权限确认；确认通过后由调用链携带
+	// WithDestructiveApproval 放行标记（无标记一律拒绝）
 	class := ClassifyCommand(command)
-	if class == CommandDestructive {
+	if class == CommandDestructive && !DestructiveApproved(ctx) {
 		return &ToolResult{
 			Raw:     fmt.Sprintf("命令被识别为破坏性操作，需在任务中单独确认（分类：%s）", CommandClassLabel(class)),
 			Kind:    "text",

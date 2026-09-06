@@ -1,18 +1,33 @@
 package agent
 
 import (
+	"context"
 	"path/filepath"
 	"strings"
 )
+
+// destructiveApprovalKey 破坏性命令经人工确认后的单步放行标记（context 传递）。
+type destructiveApprovalKey struct{}
+
+// WithDestructiveApproval 标记当前调用链中的破坏性命令已经过人工确认。
+func WithDestructiveApproval(ctx context.Context) context.Context {
+	return context.WithValue(ctx, destructiveApprovalKey{}, true)
+}
+
+// DestructiveApproved 返回当前调用链是否携带人工确认放行标记。
+func DestructiveApproved(ctx context.Context) bool {
+	v, _ := ctx.Value(destructiveApprovalKey{}).(bool)
+	return v
+}
 
 // CommandClass 命令分类，决定是否需要额外确认。
 type CommandClass int
 
 const (
 	CommandUnknown     CommandClass = iota
-	CommandReadOnly                   // 只读，可自动放行
-	CommandReadWrite                  // 读写，正常执行
-	CommandDestructive                // 破坏性（删除/格式化/关机等），需 L2 确认
+	CommandReadOnly                 // 只读，可自动放行
+	CommandReadWrite                // 读写，正常执行
+	CommandDestructive              // 破坏性（删除/格式化/关机等），需 L2 确认
 )
 
 // readOnlyVerbs 命令动词映射到安全分类。
@@ -141,6 +156,7 @@ func looksLikeEncodedPowerShell(lower string) bool {
 	}
 	return false
 }
+
 // ClassifyCommand classifies command as read-only, read-write, or destructive.
 // Splits by shell operators and classifies each segment; worst segment wins.
 func ClassifyCommand(command string) CommandClass {
