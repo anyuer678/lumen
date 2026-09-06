@@ -41,6 +41,9 @@ SQLite    LLM API    Sandbox   Computer
 
 ## Quick Start
 
+> **Token 级别说明**：`agent token <名称>` 默认签发 **L1（普通）**，适合自动化调用。要在 Dashboard 批准 L2 高危确认（破坏性命令等），请另用 `agent token <名称> --level 2` 签发交互用 token；L3 管理员仅限管理操作。
+
+
 ```bash
 # 克隆
 git clone https://github.com/anyuer678/lumen.git
