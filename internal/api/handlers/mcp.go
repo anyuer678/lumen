@@ -45,8 +45,8 @@ func (h *McpHandler) List(w http.ResponseWriter, r *http.Request) {
 func (h *McpHandler) Register(w http.ResponseWriter, r *http.Request) {
 	// 权限校验：注册 MCP 服务器需要 L1+（L0 只读不能注册进程）
 	caller := auth.PrincipalFromContext(r.Context())
-	if caller == nil || caller.PermLevel < 1 {
-		http.Error(w, `{"error":"权限不足：注册 MCP 服务器需要 L1 及以上 token"}`, http.StatusForbidden)
+	if caller == nil || caller.PermLevel < 3 {
+		http.Error(w, `{"error":"权限不足：注册 MCP 服务器需要 L3 管理员 token"}`, http.StatusForbidden)
 		return
 	}
 
@@ -88,7 +88,8 @@ func validateMcpCommand(command string) error {
 	allowed := map[string]bool{
 		"node": true, "python": true, "python3": true, "npx": true,
 		"uvx": true, "uv": true, "bun": true, "deno": true,
-		"ruby": true, "go": true, "cargo": true, "docker": true,
+		"ruby": true, "go": true, "cargo": true,
+		// docker 移除：允许挂载宿主盘起容器，RCE 攻击面过大
 	}
 	base := filepath.Base(command)
 	if !allowed[base] {
