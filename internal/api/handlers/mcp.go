@@ -6,9 +6,11 @@ import (
 	"fmt"
 	"net/http"
 	"path/filepath"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"agent/internal/agent"
+	"agent/internal/auth"
 )
 
 // McpHandler MCP 服务器管理处理器
@@ -41,6 +43,13 @@ func (h *McpHandler) List(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *McpHandler) Register(w http.ResponseWriter, r *http.Request) {
+	// 权限校验：注册 MCP 服务器需要 L1+（L0 只读不能注册进程）
+	caller := auth.PrincipalFromContext(r.Context())
+	if caller == nil || caller.PermLevel < 1 {
+		http.Error(w, `{"error":"权限不足：注册 MCP 服务器需要 L1 及以上 token"}`, http.StatusForbidden)
+		return
+	}
+
 	var server agent.McpServer
 	if err := json.NewDecoder(r.Body).Decode(&server); err != nil {
 		http.Error(w, "invalid request body: "+err.Error(), http.StatusBadRequest)
@@ -53,8 +62,12 @@ func (h *McpHandler) Register(w http.ResponseWriter, r *http.Request) {
 	if server.Transport == "" {
 		server.Transport = "stdio"
 	}
-	// 安全校验：只允许白名单内的启动命令，防止 RCE
+	// 安全校验：Command 白名单 + Args 不含 shell 元字符/危险参数
 	if err := validateMcpCommand(server.Command); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if err := validateMcpArgs(server.Args); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -80,6 +93,28 @@ func validateMcpCommand(command string) error {
 	base := filepath.Base(command)
 	if !allowed[base] {
 		return fmt.Errorf("MCP 启动命令 %q 不在白名单内（仅允许 node/python/npx/uvx/bun/deno/go 等）", base)
+	}
+	return nil
+}
+
+// validateMcpArgs 校验 MCP server 的启动参数，防止通过 args 注入 shell 命令。
+// 允许的参数：文件路径、URL、简单字符串；禁止 shell 元字符、-c/-e/-x 等代码执行标志。
+func validateMcpArgs(args []string) error {
+	dangerousFlags := map[string]bool{
+		"-c": true, "-e": true, "-x": true, "-eval": true,
+		"--eval": true, "-exec": true, "-exec-argument-file": true,
+	}
+	shellChars := []string{";", "&&", "||", "|", ">", "<", "`", "$(", "${", "&&"}
+	for _, arg := range args {
+		low := strings.ToLower(arg)
+		if dangerousFlags[low] {
+			return fmt.Errorf("MCP 参数 %q 包含代码执行标志，已拒绝", arg)
+		}
+		for _, ch := range shellChars {
+			if strings.Contains(arg, ch) {
+				return fmt.Errorf("MCP 参数 %q 包含 shell 元字符 %q，已拒绝", arg, ch)
+			}
+		}
 	}
 	return nil
 }
