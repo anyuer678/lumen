@@ -70,7 +70,8 @@ func (t *FileGrepTool) Execute(ctx context.Context, args map[string]any) (*ToolR
 	if t.sandbox {
 		absRoot, _ := filepath.Abs(root)
 		absWorkspace, _ := filepath.Abs(t.workspaceRoot)
-		if !strings.HasPrefix(absRoot, absWorkspace) {
+		rel, relErr := filepath.Rel(absWorkspace, absRoot)
+		if relErr != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
 			return nil, fmt.Errorf("path escape: %s is outside workspace", relPath)
 		}
 	}

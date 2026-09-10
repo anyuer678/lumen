@@ -1016,10 +1016,14 @@ func (l *Loop) auditLogRecord(target, action, detail, result string) {
 // registerBuiltinTools 注册内置工具
 func (l *Loop) registerBuiltinTools() {
 	sandbox := true // 默认启用沙箱
+	workspaceRoot := "./data/workspace"
 	if cfg := config.Get(); cfg != nil {
 		sandbox = cfg.Workspace.Sandbox
+		if cfg.Workspace.Root != "" {
+			workspaceRoot = cfg.Workspace.Root
+		}
 	}
-	l.RegisterTool(&ShellTool{sandbox: sandbox})
+	l.RegisterTool(&ShellTool{sandbox: sandbox, workspaceRoot: workspaceRoot})
 	l.RegisterTool(NewFilesystemTool("./data/workspace", sandbox))
 	l.RegisterTool(NewFileGrepTool("./data/workspace", sandbox))
 	l.RegisterTool(NewGitHubTool()) // GitHub 集成（只读）

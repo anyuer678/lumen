@@ -262,10 +262,9 @@ func (t *ComputerTool) keyboard(ctx context.Context, args map[string]any) (*Tool
 		psScript := fmt.Sprintf(`
 Add-Type -AssemblyName System.Windows.Forms
 [System.Windows.Forms.SendKeys]::SendWait('%s')
-Write-Output "typed: %s"
-`, escapeSendKeys(text), text)
-		output := t.runPowerShell(psScript)
-		return &ToolResult{Raw: strings.TrimSpace(output), Kind: "text", Summary: fmt.Sprintf("Typed: %s", truncate(text, 50))}, nil
+`, escapeSendKeys(text))
+		t.runPowerShell(psScript)
+		return &ToolResult{Raw: "ok", Kind: "text", Summary: fmt.Sprintf("Typed: %s", truncate(text, 50))}, nil
 
 	case "hotkey":
 		if hotkey == "" {
@@ -370,7 +369,10 @@ func (t *ComputerTool) runPowerShell(script string) string {
 }
 
 func escapePS(s string) string {
-	return strings.ReplaceAll(s, "'", "''")
+	s = strings.ReplaceAll(s, "'", "''")    // PS 单引号转义
+	s = strings.ReplaceAll(s, "`", "``")    // PS 反引号转义
+	s = strings.ReplaceAll(s, "\"", "\"\"") // PS 双引号转义
+	return s
 }
 
 func escapeSendKeys(s string) string {

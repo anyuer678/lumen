@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"net/http"
 	"path/filepath"
+	"runtime"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
@@ -14,16 +16,43 @@ import (
 
 // VisionHandler 视觉分析 API 端点
 type VisionHandler struct {
-	analyzer *vision.Analyzer
-	logger   *zap.SugaredLogger
+	analyzer     *vision.Analyzer
+	logger       *zap.SugaredLogger
+	workspaceRoot string
 }
 
 // NewVisionHandler 创建视觉分析处理器
-func NewVisionHandler(provider llm.Provider, logger *zap.Logger) *VisionHandler {
+func NewVisionHandler(provider llm.Provider, logger *zap.Logger, workspaceRoot string) *VisionHandler {
 	return &VisionHandler{
-		analyzer: vision.NewAnalyzer(provider),
-		logger:   logger.Sugar(),
+		analyzer:      vision.NewAnalyzer(provider),
+		logger:        logger.Sugar(),
+		workspaceRoot: workspaceRoot,
 	}
+}
+
+// validateImagePath 限制 image_path 只能读取工作空间内的文件，
+// 防止通过任意路径读取 /etc/passwd 等敏感文件。
+func (h *VisionHandler) validateImagePath(p string) error {
+	absPath, err := filepath.Abs(p)
+	if err != nil {
+		return fmt.Errorf("invalid path: %w", err)
+	}
+	if resolved, rerr := filepath.EvalSymlinks(absPath); rerr == nil {
+		absPath = resolved
+	}
+	absWS, _ := filepath.Abs(h.workspaceRoot)
+	if resolved, rerr := filepath.EvalSymlinks(absWS); rerr == nil {
+		absWS = resolved
+	}
+	if runtime.GOOS == "windows" {
+		absPath = strings.ToLower(absPath)
+		absWS = strings.ToLower(absWS)
+	}
+	rel, err := filepath.Rel(absWS, absPath)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return fmt.Errorf("access denied: image_path outside workspace")
+	}
+	return nil
 }
 
 // Routes 注册路由
@@ -47,6 +76,10 @@ func (h *VisionHandler) Analyze(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.ImagePath == "" {
 		http.Error(w, "image_path is required", http.StatusBadRequest)
+		return
+	}
+	if err := h.validateImagePath(req.ImagePath); err != nil {
+		http.Error(w, err.Error(), http.StatusForbidden)
 		return
 	}
 
@@ -73,6 +106,10 @@ func (h *VisionHandler) Locate(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.ImagePath == "" || req.ElementDesc == "" {
 		http.Error(w, "image_path and element are required", http.StatusBadRequest)
+		return
+	}
+	if err := h.validateImagePath(req.ImagePath); err != nil {
+		http.Error(w, err.Error(), http.StatusForbidden)
 		return
 	}
 

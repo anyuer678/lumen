@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 )
 
@@ -164,8 +165,14 @@ func (t *FilesystemTool) checkSandbox(path string) error {
 		workspaceAbs = resolved
 	}
 
-	// 用 path 规范化比较，避免 /a/./b 或大小写绕过
-	if !strings.HasPrefix(absPath, workspaceAbs) {
+	// 用 filepath.Rel 判定相对路径——HasPrefix 无法阻止 workspace-evil 通过前缀绕过
+	// Windows 大小写不敏感，先统一小写再比较
+	if runtime.GOOS == "windows" {
+		absPath = strings.ToLower(absPath)
+		workspaceAbs = strings.ToLower(workspaceAbs)
+	}
+	rel, err := filepath.Rel(workspaceAbs, absPath)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
 		return fmt.Errorf("access denied: path %s is outside workspace %s", path, t.workspaceRoot)
 	}
 
