@@ -1,5 +1,6 @@
 package agent
 
+import "testing"
 func TestCheckSandbox_EscapeViaPrefix(t *testing.T) {
 	// workspace-evil 以 workspace 为前缀但不是子路径——HasPrefix 会误放行
 	tool := NewFilesystemTool("./workspace", true)
