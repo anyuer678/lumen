@@ -160,7 +160,7 @@ func NewRouter(tm *task.Manager, sched *scheduler.Scheduler, db *sql.DB, mcpRegi
 
 		// 视觉分析端点（截图 -> 视觉模型 -> UI 理解）
 		if llmProvider != nil {
-			visionHandler := handlers.NewVisionHandler(llmProvider, log)
+			visionHandler := handlers.NewVisionHandler(llmProvider, log, "./data/workspace")
 			r.Mount("/vision", visionHandler.Routes())
 		}
 

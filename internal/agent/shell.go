@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
@@ -12,7 +13,8 @@ import (
 
 // ShellTool 真实 Shell 工具
 type ShellTool struct {
-	sandbox bool // 启用路径沙箱
+	sandbox       bool   // 启用路径沙箱
+	workspaceRoot string // 工作空间根路径（沙箱校验用）
 }
 
 // 命令黑名单：危险操作默认拒绝
@@ -180,8 +182,15 @@ func (t *ShellTool) Execute(ctx context.Context, args map[string]any) (*ToolResu
 		cmd = exec.CommandContext(timeoutCtx, "sh", "-c", command)
 	}
 
-	// 设置工作目录
+	// 设置工作目录（沙箱模式下限制在工作空间内，防止通过 workdir 逃逸）
 	if workDir != "" {
+		if t.sandbox && t.workspaceRoot != "" {
+			absWork, _ := filepath.Abs(workDir)
+			absWS, _ := filepath.Abs(t.workspaceRoot)
+			if r, err := filepath.Rel(absWS, absWork); err != nil || r == ".." || strings.HasPrefix(r, ".."+string(filepath.Separator)) {
+				return nil, fmt.Errorf("access denied: workdir %s is outside workspace", workDir)
+			}
+		}
 		cmd.Dir = workDir
 	}
 
