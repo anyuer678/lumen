@@ -12,6 +12,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+	"agent/internal/auth"
 )
 
 // TokenHandler API Token 处理器
@@ -81,6 +82,13 @@ type createTokenRequest struct {
 }
 
 func (h *TokenHandler) Create(w http.ResponseWriter, r *http.Request) {
+	// 权限校验：调用者级别必须 ≥ 被签发级别（L0 只读不能签发任何 token）
+	caller := auth.PrincipalFromContext(r.Context())
+	if caller == nil {
+		http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
+		return
+	}
+
 	var req createTokenRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "invalid request body: "+err.Error(), http.StatusBadRequest)
@@ -95,6 +103,11 @@ func (h *TokenHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.PermLevel == 0 {
 		req.PermLevel = 1
+	}
+	// 防止提权：调用者不能签发比自己更高级别的 token
+	if req.PermLevel > caller.PermLevel {
+		http.Error(w, fmt.Sprintf(`{"error":"权限不足：调用者级别 L%d 不能签发 L%d token"}`, caller.PermLevel, req.PermLevel), http.StatusForbidden)
+		return
 	}
 
 	// 生成随机 token
