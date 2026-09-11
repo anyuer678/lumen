@@ -114,17 +114,17 @@ func NewRouter(tm *task.Manager, sched *scheduler.Scheduler, db *sql.DB, mcpRegi
 			})
 		}
 
-		// Token 端点（需要 token:manage scope）
+		// Token 端点
+		// Create 路由通过 handler 内部 hasTokens() 判断是否需要认证（支持首次引导），
+		// 不经过全局 tokenAuthMiddleware（由 chi Group 豁免）。
+		// List/Revoke 需要 token:manage scope。
 		if db != nil {
 			tokenHandler := handlers.NewTokenHandler(db)
 			r.Group(func(r chi.Router) {
 				r.Use(auth.RequireScope("token:manage"))
-				// List 和 Revoke 需要 scope
 				r.Get("/auth/token", tokenHandler.List)
 				r.Delete("/auth/token/{id}", tokenHandler.Revoke)
 			})
-			// Create 路由单独挂载：允许首次运行引导（bootstrap），
-			// 由 handler 内部判断数据库是否为空来决定是否需要认证。
 			r.Post("/auth/token", tokenHandler.Create)
 		}
 
@@ -301,23 +301,17 @@ func isLocalOrigin(origin string) bool {
 	return host == "localhost" || host == "127.0.0.1" || host == "0.0.0.0" || host == "::1"
 }
 
-// tokenAuthMiddleware 校验 /v1 下的 Bearer token，豁免 /health、/status 和首次引导 token 创建。
+// tokenAuthMiddleware 校验 /v1 下的 Bearer token，豁免 /health 与 /status。
 // SSE 事件流（/events）同样要求认证：前端经 ?token= 查询参数传递。
 func tokenAuthMiddleware(verifier *auth.TokenVerifier) func(http.Handler) http.Handler {
-	exempt := func(method, path string) bool {
-		// 豁免只读公开端点
-		if strings.HasSuffix(path, "/health") || strings.HasSuffix(path, "/status") {
-			return true
-		}
-		// 豁免首次引导 token 创建：POST /auth/token（handler 内部会判断数据库是否为空）
-		if method == http.MethodPost && strings.HasSuffix(path, "/auth/token") {
-			return true
-		}
-		return false
+	exempt := func(path string) bool {
+		// 仅豁免只读公开端点；token 管理必须认证
+		return strings.HasSuffix(path, "/health") ||
+			strings.HasSuffix(path, "/status")
 	}
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if exempt(r.Method, r.URL.Path) {
+			if exempt(r.URL.Path) {
 				next.ServeHTTP(w, r)
 				return
 			}
