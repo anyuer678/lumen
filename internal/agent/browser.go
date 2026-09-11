@@ -38,6 +38,25 @@ func (t *BrowserTool) Name() string        { return "browser" }
 func (t *BrowserTool) Description() string { return "浏览器操控（open/navigate/read/search/click/type/screenshot/scroll/back）" }
 func (t *BrowserTool) RequiredLevel() int  { return 0 }
 
+// validateURL 安全校验：仅允许 http/https 协议，阻止 file://、javascript: 等危险 scheme。
+func validateURL(rawURL string) error {
+	if rawURL == "" {
+		return fmt.Errorf("url is required")
+	}
+	lower := strings.ToLower(strings.TrimSpace(rawURL))
+	// 显式阻止 file://、javascript:、data:、vbscript: 等非 http scheme
+	for _, blocked := range []string{"file://", "javascript:", "data:", "vbscript:"} {
+		if strings.HasPrefix(lower, blocked) {
+			return fmt.Errorf("URL scheme %q 不允许（仅支持 http/https）", blocked)
+		}
+	}
+	// 必须以 http:// 或 https:// 开头
+	if !strings.HasPrefix(lower, "http://") && !strings.HasPrefix(lower, "https://") {
+		return fmt.Errorf("URL 必须以 http:// 或 https:// 开头，当前: %q", rawURL)
+	}
+	return nil
+}
+
 func (t *BrowserTool) Execute(ctx context.Context, args map[string]any) (*ToolResult, error) {
 	action, _ := args["action"].(string)
 	if action == "" {
@@ -117,8 +136,9 @@ func (t *BrowserTool) cdp(ctx context.Context, op string, args map[string]any) (
 		if url == "" {
 			return nil, fmt.Errorf("url is required for navigate")
 		}
-		if !strings.HasPrefix(url, "http") {
-			url = "https://" + url
+		// 安全：阻止 file:// 等危险 scheme（chrome 支持 file:// 导航，可读取本地文件）
+		if err := validateURL(url); err != nil {
+			return nil, fmt.Errorf("navigate: %w", err)
 		}
 		var title, body string
 		err := chromedp.Run(bctx,
@@ -211,6 +231,10 @@ func (t *BrowserTool) cdp(ctx context.Context, op string, args map[string]any) (
 
 	case "readom":
 		url, _ := args["url"].(string)
+		// 安全：阻止 file:// 等危险 scheme（chrome 支持 file:// 导航，可读取本地文件）
+		if err := validateURL(url); err != nil {
+			return nil, fmt.Errorf("readom: %w", err)
+		}
 		var text string
 		err := chromedp.Run(bctx,
 			chromedp.Navigate(url),
@@ -319,8 +343,8 @@ func (t *BrowserTool) open(ctx context.Context, url string) (*ToolResult, error)
 		return nil, fmt.Errorf("url is required for browser open (usage: browser action=open url=https://example.com)")
 	}
 	// 安全：只允许 http/https URL，防止 start 处理非 http scheme（如 file://、恶意命令）
-	if !strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://") {
-		return nil, fmt.Errorf("browser open only supports http(s) URLs")
+	if err := validateURL(url); err != nil {
+		return nil, fmt.Errorf("browser open: %w", err)
 	}
 	var cmd *exec.Cmd
 	switch runtime.GOOS {
