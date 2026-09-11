@@ -121,7 +121,10 @@ func classifySingleCommand(command string) CommandClass {
 			return CommandReadOnly
 		}
 	}
-	return CommandReadWrite
+	// 默认拒绝：未知命令视为破坏性，需人工确认后才执行。
+	// 之前默认 CommandReadWrite（自动放行），攻击者可构造不在 readOnly/destructive
+	// 列表中的命令绕过确认流程（如 curl、wget、powershell Invoke-WebRequest 等）。
+	return CommandDestructive
 }
 
 // looksLikeEncodedPowerShell 识别编码式 PowerShell 调用。
