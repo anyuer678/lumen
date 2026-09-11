@@ -37,9 +37,18 @@ func NewRouter(tm *task.Manager, sched *scheduler.Scheduler, db *sql.DB, mcpRegi
 	r.Use(middleware.Recoverer)
 	r.Use(corsMiddleware)
 
-	// API 路由（优先级最高）
+	// ===== Bootstrap token 创建（首次运行引导）=====
+	// 注册在 /v1 Route 回调之外，不经过 tokenAuthMiddleware。
+	// handler 内部 hasTokens() 判断数据库是否为空：
+	// - 空数据库 → 允许无认证创建 L3 token
+	// - 非空数据库 → 拒绝（必须带有效 token）
+	if db != nil {
+		tokenHandler := handlers.NewTokenHandler(db)
+		r.Post("/v1/auth/token", tokenHandler.Create)
+	}
+
+	// API 路由（需要 Bearer token）
 	r.Route("/v1", func(r chi.Router) {
-	// 除 /health 与 /status 外的所有端点要求 Bearer token
 		if db != nil {
 			verifier := auth.NewTokenVerifier(db)
 			r.Use(tokenAuthMiddleware(verifier))
@@ -105,7 +114,7 @@ func NewRouter(tm *task.Manager, sched *scheduler.Scheduler, db *sql.DB, mcpRegi
 			r.Mount("/audit", auditHandler.Routes())
 		}
 
-		// MCP 端点（需要 mcp:register / mcp:manage scope）
+		// MCP 端点（需要 mcp:register scope）
 		if mcpRegistry != nil {
 			r.Group(func(r chi.Router) {
 				r.Use(auth.RequireScope("mcp:register"))
@@ -114,10 +123,8 @@ func NewRouter(tm *task.Manager, sched *scheduler.Scheduler, db *sql.DB, mcpRegi
 			})
 		}
 
-		// Token 端点
-		// Create 路由通过 handler 内部 hasTokens() 判断是否需要认证（支持首次引导），
-		// 不经过全局 tokenAuthMiddleware（由 chi Group 豁免）。
-		// List/Revoke 需要 token:manage scope。
+		// Token List/Revoke（需要 token:manage scope）
+		// Create 路由已注册在 Route 回调之外（bootstrap）
 		if db != nil {
 			tokenHandler := handlers.NewTokenHandler(db)
 			r.Group(func(r chi.Router) {
@@ -125,7 +132,6 @@ func NewRouter(tm *task.Manager, sched *scheduler.Scheduler, db *sql.DB, mcpRegi
 				r.Get("/auth/token", tokenHandler.List)
 				r.Delete("/auth/token/{id}", tokenHandler.Revoke)
 			})
-			r.Post("/auth/token", tokenHandler.Create)
 		}
 
 		// 工具端点（需要 tools:run scope）
