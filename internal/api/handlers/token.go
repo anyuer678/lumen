@@ -119,12 +119,27 @@ func parseTTL(ttl string) (time.Duration, error) {
 	}
 }
 
+// hasTokens 检查数据库中是否已有 token（用于首次运行引导判断）。
+func (h *TokenHandler) hasTokens() bool {
+	var count int
+	h.db.QueryRow(`SELECT COUNT(*) FROM api_tokens`).Scan(&count)
+	return count > 0
+}
+
 func (h *TokenHandler) Create(w http.ResponseWriter, r *http.Request) {
-	// 权限校验：调用者级别必须 ≥ 被签发级别（L0 只读不能签发任何 token）
 	caller := auth.PrincipalFromContext(r.Context())
+
+	// 首次运行引导：数据库为空时允许无认证创建第一个 token，
+	// 但强制要求 L3（最高权限）且使用默认全量 scopes，防止滥用。
+	bootstrapMode := false
 	if caller == nil {
-		http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
-		return
+		if h.hasTokens() {
+			// 已有 token 但请求未认证 → 拒绝
+			http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
+			return
+		}
+		// 首次运行：允许创建第一个 token，但强制 L3 + 全量 scopes
+		bootstrapMode = true
 	}
 
 	var req createTokenRequest
@@ -137,15 +152,24 @@ func (h *TokenHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if req.Scopes == "" {
-		req.Scopes = "tasks:create,tasks:control,confirm:approve"
+		req.Scopes = "tasks:create,tasks:control,confirm:approve,tools:run,mcp:register,token:manage,events:emit,kb:write,settings:write"
 	}
 	if req.PermLevel == 0 {
 		req.PermLevel = 1
 	}
-	// 防止提权：调用者不能签发比自己更高级别的 token
-	if req.PermLevel > caller.PermLevel {
-		http.Error(w, fmt.Sprintf(`{"error":"权限不足：调用者级别 L%d 不能签发 L%d token"}`, caller.PermLevel, req.PermLevel), http.StatusForbidden)
-		return
+
+	if bootstrapMode {
+		// 引导模式：强制 L3，拒绝其他级别
+		if req.PermLevel != 3 {
+			http.Error(w, `{"error":"首次创建 token 必须为 L3 管理员级别"}`, http.StatusForbidden)
+			return
+		}
+	} else {
+		// 正常模式：防止提权——调用者不能签发比自己更高级别的 token
+		if req.PermLevel > caller.PermLevel {
+			http.Error(w, fmt.Sprintf(`{"error":"权限不足：调用者级别 L%d 不能签发 L%d token"}`, caller.PermLevel, req.PermLevel), http.StatusForbidden)
+			return
+		}
 	}
 
 	// 生成随机 token
@@ -180,8 +204,7 @@ func (h *TokenHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	resp := map[string]interface{}{
 		"id":         id,
 		"name":       req.Name,
 		"scopes":     req.Scopes,
@@ -189,7 +212,14 @@ func (h *TokenHandler) Create(w http.ResponseWriter, r *http.Request) {
 		"token":      tokenStr, // 仅此一次显示明文
 		"expires_at": expiresAt,
 		"warning":    "请立即保存 token，仅显示一次",
-	})
+	}
+	if bootstrapMode {
+		resp["bootstrap"] = true
+		resp["message"] = "首次运行引导：已创建管理员 token，请立即保存"
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(resp)
 }
 
 func (h *TokenHandler) Revoke(w http.ResponseWriter, r *http.Request) {
