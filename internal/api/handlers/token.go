@@ -47,6 +47,12 @@ type Token struct {
 }
 
 func (h *TokenHandler) List(w http.ResponseWriter, r *http.Request) {
+	// 权限校验：列出全部 token 元数据需要 L3（防止低权限 token 枚举）
+	caller := auth.PrincipalFromContext(r.Context())
+	if caller == nil || caller.PermLevel < 3 {
+		http.Error(w, `{"error":"权限不足：列出 token 需要 L3"}`, http.StatusForbidden)
+		return
+	}
 	rows, err := h.db.Query(
 		`SELECT id, name, scopes, perm_level, enabled, created_at, expires_at FROM api_tokens ORDER BY created_at DESC`)
 	if err != nil {
@@ -187,6 +193,12 @@ func (h *TokenHandler) Create(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *TokenHandler) Revoke(w http.ResponseWriter, r *http.Request) {
+	// 权限校验：吊销 token 需要 L3（防止 L0/L1 拒绝服务或清除审计）
+	caller := auth.PrincipalFromContext(r.Context())
+	if caller == nil || caller.PermLevel < 3 {
+		http.Error(w, `{"error":"权限不足：吊销 token 需要 L3"}`, http.StatusForbidden)
+		return
+	}
 	id := chi.URLParam(r, "id")
 	result, err := h.db.Exec(`UPDATE api_tokens SET enabled = 0 WHERE id = ?`, id)
 	if err != nil {

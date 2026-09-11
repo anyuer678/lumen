@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"agent/internal/agent"
+	"agent/internal/auth"
 )
 
 // EventHandler 事件处理器
@@ -51,6 +52,12 @@ func (h *EventHandler) ListEvents(w http.ResponseWriter, r *http.Request) {
 
 // EmitEvent 发射事件
 func (h *EventHandler) EmitEvent(w http.ResponseWriter, r *http.Request) {
+	// 权限校验：伪造事件可驱动 proactive 恢复/重试，需要 L2+
+	caller := auth.PrincipalFromContext(r.Context())
+	if caller == nil || caller.PermLevel < 2 {
+		http.Error(w, `{"error":"权限不足：发射事件需要 L2 及以上 token"}`, http.StatusForbidden)
+		return
+	}
 	var event agent.Event
 	if err := json.NewDecoder(r.Body).Decode(&event); err != nil {
 		http.Error(w, "invalid request: "+err.Error(), http.StatusBadRequest)
@@ -70,6 +77,12 @@ func (h *EventHandler) EmitEvent(w http.ResponseWriter, r *http.Request) {
 
 // ClearOld 清理旧事件
 func (h *EventHandler) ClearOld(w http.ResponseWriter, r *http.Request) {
+	// 权限校验：批量删除事件历史属于破坏性操作，需要 L3
+	caller := auth.PrincipalFromContext(r.Context())
+	if caller == nil || caller.PermLevel < 3 {
+		http.Error(w, `{"error":"权限不足：清理事件需要 L3"}`, http.StatusForbidden)
+		return
+	}
 	keepDays := 30
 	if d := r.URL.Query().Get("keep_days"); d != "" {
 		if n, err := strconv.Atoi(d); err == nil && n > 0 {
