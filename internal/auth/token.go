@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -42,6 +43,9 @@ func NewTokenVerifier(db *sql.DB) *TokenVerifier {
 // ErrUnauthorized 未授权
 var ErrUnauthorized = errors.New("unauthorized")
 
+// ErrScopeDenied scope 不足
+var ErrScopeDenied = errors.New("scope denied")
+
 // TokenPrincipal 解析出的调用方身份
 type TokenPrincipal struct {
 	ID        string
@@ -50,8 +54,41 @@ type TokenPrincipal struct {
 	Scopes    string
 }
 
+// HasScope 检查 principal 是否拥有指定 scope。
+// 空 scopes 字段视为拥有所有 scope（向后兼容未设 scope 的旧 token）。
+func (p *TokenPrincipal) HasScope(scope string) bool {
+	if p.Scopes == "" {
+		return true
+	}
+	for _, s := range strings.Split(p.Scopes, ",") {
+		if strings.TrimSpace(s) == scope {
+			return true
+		}
+	}
+	return false
+}
+
+// RequireScope 返回一个 HTTP 中间件：检查调用者是否拥有指定 scope，
+// 缺失时返回 403。若 token 无 scopes 字段（旧 token），自动放行。
+func RequireScope(scope string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			p := PrincipalFromContext(r.Context())
+			if p == nil {
+				http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
+				return
+			}
+			if !p.HasScope(scope) {
+				http.Error(w, fmt.Sprintf(`{"error":"scope %q required but not granted"}`, scope), http.StatusForbidden)
+				return
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
 // Verify 校验请求头中的 Bearer token，返回 principal。
-// 支持两种来源：Authorization: Bearer <token>，或 X-API-Token: <token>。
+// 支持三种来源：Authorization: Bearer <token>、X-API-Token: <token>、?token=<token>。
 func (v *TokenVerifier) Verify(r *http.Request) (*TokenPrincipal, error) {
 	token := extractToken(r)
 	if token == "" {
