@@ -13,6 +13,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"agent/internal/auth"
+	"agent/internal/config"
 )
 
 // TokenHandler API Token 处理器
@@ -36,12 +37,12 @@ func (h *TokenHandler) Routes() chi.Router {
 
 // Token 令牌结构
 type Token struct {
-	ID        string    `json:"id"`
-	Name      string    `json:"name"`
-	Scopes    string    `json:"scopes"`
-	PermLevel int       `json:"perm_level"`
-	Enabled   bool      `json:"enabled"`
-	CreatedAt time.Time `json:"created_at"`
+	ID        string     `json:"id"`
+	Name      string     `json:"name"`
+	Scopes    string     `json:"scopes"`
+	PermLevel int        `json:"perm_level"`
+	Enabled   bool       `json:"enabled"`
+	CreatedAt time.Time  `json:"created_at"`
 	ExpiresAt *time.Time `json:"expires_at,omitempty"`
 }
 
@@ -79,6 +80,37 @@ type createTokenRequest struct {
 	Name      string `json:"name"`
 	Scopes    string `json:"scopes"`
 	PermLevel int    `json:"perm_level"`
+}
+
+// parseTTL 解析 TTL 字符串（如 "365d"、"24h"、"30m"）为 time.Duration。
+// 支持后缀：d(天)、h(小时)、m(分钟)、s(秒)。无后缀默认为天。
+func parseTTL(ttl string) (time.Duration, error) {
+	if ttl == "" {
+		return 0, fmt.Errorf("empty TTL")
+	}
+	// 尝试标准 Go duration
+	if d, err := time.ParseDuration(ttl); err == nil {
+		return d, nil
+	}
+	// 自定义后缀：NNd = N天
+	last := ttl[len(ttl)-1]
+	numeric := ttl[:len(ttl)-1]
+	var n int
+	if _, err := fmt.Sscanf(numeric, "%d", &n); err != nil || n <= 0 {
+		return 0, fmt.Errorf("invalid TTL: %s", ttl)
+	}
+	switch last {
+	case 'd':
+		return time.Duration(n) * 24 * time.Hour, nil
+	case 'h':
+		return time.Duration(n) * time.Hour, nil
+	case 'm':
+		return time.Duration(n) * time.Minute, nil
+	case 's':
+		return time.Duration(n) * time.Second, nil
+	default:
+		return 0, fmt.Errorf("unknown TTL suffix: %c", last)
+	}
 }
 
 func (h *TokenHandler) Create(w http.ResponseWriter, r *http.Request) {
@@ -119,10 +151,24 @@ func (h *TokenHandler) Create(w http.ResponseWriter, r *http.Request) {
 	hash := sha256.Sum256([]byte(tokenStr))
 	id := "tok-" + uuid.New().String()[:8]
 
+	// 计算过期时间：从配置读取 TTL（默认 365 天），新 token 均设置 expires_at
+	var expiresAt time.Time
+	cfg := config.Get()
+	ttlStr := "365d" // 默认值
+	if cfg != nil && cfg.Server.APITokenTTL != "" {
+		ttlStr = cfg.Server.APITokenTTL
+	}
+	if ttl, err := parseTTL(ttlStr); err == nil {
+		expiresAt = time.Now().Add(ttl)
+	} else {
+		// TTL 解析失败时仍设置合理默认值（365 天），避免 token 永不过期
+		expiresAt = time.Now().Add(365 * 24 * time.Hour)
+	}
+
 	_, err := h.db.Exec(
-		`INSERT INTO api_tokens (id, name, token_hash, scopes, perm_level, enabled, created_at)
-		 VALUES (?, ?, ?, ?, ?, 1, ?)`,
-		id, req.Name, hex.EncodeToString(hash[:]), req.Scopes, req.PermLevel, time.Now())
+		`INSERT INTO api_tokens (id, name, token_hash, scopes, perm_level, enabled, created_at, expires_at)
+	 VALUES (?, ?, ?, ?, ?, 1, ?, ?)`,
+		id, req.Name, hex.EncodeToString(hash[:]), req.Scopes, req.PermLevel, time.Now(), expiresAt)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -135,6 +181,7 @@ func (h *TokenHandler) Create(w http.ResponseWriter, r *http.Request) {
 		"scopes":     req.Scopes,
 		"perm_level": req.PermLevel,
 		"token":      tokenStr, // 仅此一次显示明文
+		"expires_at": expiresAt,
 		"warning":    "请立即保存 token，仅显示一次",
 	})
 }
