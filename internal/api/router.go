@@ -1,4 +1,4 @@
-﻿package api
+package api
 
 import (
 	"database/sql"
@@ -48,11 +48,11 @@ func NewRouter(tm *task.Manager, sched *scheduler.Scheduler, db *sql.DB, mcpRegi
 		r.Get("/status", statusHandler)
 		r.Get("/events", SSEHandler(GetBroadcaster()))
 
-		// 浠诲姟绔偣
+		// 任务端点
 		taskHandler := handlers.NewTaskHandler(tm)
 		r.Mount("/tasks", taskHandler.Routes())
 
-		// 瀹氭椂浠诲姟绔偣
+		// 定时任务端点
 		if sched != nil {
 			jobHandler := handlers.NewJobHandler(sched)
 			r.Mount("/jobs", jobHandler.Routes())
@@ -74,71 +74,86 @@ func NewRouter(tm *task.Manager, sched *scheduler.Scheduler, db *sql.DB, mcpRegi
 			})
 		}
 
-		// 纭绔偣
+		// 确认端点
 		if db != nil {
 			confirmHandler := handlers.NewConfirmHandler(auth.NewConfirmStore(db))
 			r.Mount("/confirmations", confirmHandler.Routes())
 		}
 
-		// 璁剧疆绔偣
-		settingsHandler := handlers.NewSettingsHandler()
-		r.Mount("/settings", settingsHandler.Routes())
+		// 设置端点（需要 settings:write scope）
+		r.Group(func(r chi.Router) {
+			r.Use(auth.RequireScope("settings:write"))
+			settingsHandler := handlers.NewSettingsHandler()
+			r.Mount("/settings", settingsHandler.Routes())
+		})
 
-		// 浜х墿绔偣锛堟埅鍥剧瓑 workspace 鏂囦欢锛?
+		// 产物端点（截图等 workspace 文件）
 		if db != nil {
 			artifactsHandler := handlers.NewArtifactsHandler("./data/workspace")
 			r.Mount("/artifacts", artifactsHandler.Routes())
 		}
 
-		// 璁板繂绔偣
+		// 记忆端点
 		if db != nil {
 			memoryHandler := handlers.NewMemoryHandler(memory.NewStore(db))
 			r.Mount("/memories", memoryHandler.Routes())
 		}
 
-		// 瀹¤绔偣
+		// 审计端点
 		if db != nil {
 			auditHandler := handlers.NewAuditHandler(db)
 			r.Mount("/audit", auditHandler.Routes())
 		}
 
-		// MCP 绔偣
+		// MCP 端点（需要 mcp:register / mcp:manage scope）
 		if mcpRegistry != nil {
-			mcpHandler := handlers.NewMcpHandler(mcpRegistry)
-			r.Mount("/mcp/servers", mcpHandler.Routes())
+			r.Group(func(r chi.Router) {
+				r.Use(auth.RequireScope("mcp:register"))
+				mcpHandler := handlers.NewMcpHandler(mcpRegistry)
+				r.Mount("/mcp/servers", mcpHandler.Routes())
+			})
 		}
 
-		// Token 绔偣
+		// Token 端点（需要 token:manage scope）
 		if db != nil {
-			tokenHandler := handlers.NewTokenHandler(db)
-			r.Mount("/auth/token", tokenHandler.Routes())
+			r.Group(func(r chi.Router) {
+				r.Use(auth.RequireScope("token:manage"))
+				tokenHandler := handlers.NewTokenHandler(db)
+				r.Mount("/auth/token", tokenHandler.Routes())
+			})
 		}
 
-		// 宸ュ叿绔偣
+		// 工具端点（需要 tools:run scope）
 		if agentLoop != nil {
-			toolHandler := handlers.NewToolHandler(agentLoop)
-			r.Mount("/tools", toolHandler.Routes())
+			r.Group(func(r chi.Router) {
+				r.Use(auth.RequireScope("tools:run"))
+				toolHandler := handlers.NewToolHandler(agentLoop)
+				r.Mount("/tools", toolHandler.Routes())
+			})
 		}
 
-		// 鑱婂ぉ绔偣
+		// 聊天端点
 		if db != nil {
 			chatHandler := handlers.NewChatHandler(db, logger, agentLoop, llmProvider)
 			r.Mount("/chat", chatHandler.Routes())
 		}
 
-		// Token 鐢ㄩ噺杩借釜绔偣
+		// Token 用量追踪端点
 		if db != nil {
 			tokenUsageHandler := handlers.NewTokenUsageHandler(db)
 			r.Mount("/token-usage", tokenUsageHandler.Routes())
 		}
 
-		// 浜嬩欢鎬荤嚎绔偣
+		// 事件总线端点（需要 events:emit scope）
 		if db != nil {
-			eventHandler := handlers.NewEventHandler(db)
-			r.Mount("/events", eventHandler.Routes())
+			r.Group(func(r chi.Router) {
+				r.Use(auth.RequireScope("events:emit"))
+				eventHandler := handlers.NewEventHandler(db)
+				r.Mount("/events", eventHandler.Routes())
+			})
 		}
 
-		// Daily Digest 绔偣
+		// Daily Digest 端点
 		if db != nil {
 			digestHandler := handlers.NewDigestHandler(db)
 			r.Mount("/digest", digestHandler.Routes())
@@ -150,11 +165,11 @@ func NewRouter(tm *task.Manager, sched *scheduler.Scheduler, db *sql.DB, mcpRegi
 			r.Mount("/workflows", workflowHandler.Routes())
 		}
 
-		// 杞ㄨ抗鍥炴斁绔偣
+		// 轨迹回放端点
 		trajHandler := handlers.NewTrajectoryHandler()
 		r.Mount("/trajectories", trajHandler.Routes())
 
-		// 杩借釜璁板綍绔偣锛圓gent Trace锛?
+		// 追踪记录端点（Agent Trace）
 		traceHandler := handlers.NewTraceHandler(log)
 		r.Mount("/traces", traceHandler.Routes())
 
@@ -164,25 +179,28 @@ func NewRouter(tm *task.Manager, sched *scheduler.Scheduler, db *sql.DB, mcpRegi
 			r.Mount("/vision", visionHandler.Routes())
 		}
 
-		// 鐭ヨ瘑搴撶鐐?
+		// 知识库端点（需要 kb:write scope）
 		if db != nil {
-			kbHandler := handlers.NewKBHandler(db)
-			r.Mount("/knowledge", kbHandler.Routes())
+			r.Group(func(r chi.Router) {
+				r.Use(auth.RequireScope("kb:write"))
+				kbHandler := handlers.NewKBHandler(db)
+				r.Mount("/knowledge", kbHandler.Routes())
+			})
 		}
 
-		// 鐢ㄦ埛鐢诲儚绔偣锛圡emory 2.0 Reflection锛?
+		// 用户画像端点（Memory 2.0 Reflection）
 		if db != nil {
 			profileHandler := handlers.NewProfileHandler(db, log)
 			r.Mount("/profiles", profileHandler.Routes())
 		}
 
-		// 璁板繂鐢熷懡鍛ㄦ湡绔偣
+		// 记忆生命周期端点
 		if db != nil {
 			lifecycleHandler := handlers.NewLifecycleHandler(db, log)
 			r.Mount("/lifecycle", lifecycleHandler.Routes())
 		}
 
-		// 璁板繂璐ㄩ噺璇勫垎绔偣
+		// 记忆质量评分端点
 		if db != nil {
 			msHandler := handlers.NewMemoryScoreHandler(db, log)
 			r.Mount("/memory-score", msHandler.Routes())
@@ -284,7 +302,7 @@ func tokenAuthMiddleware(verifier *auth.TokenVerifier) func(http.Handler) http.H
 	exempt := func(path string) bool {
 		// 仅豁免只读公开端点；token 管理必须认证
 		return strings.HasSuffix(path, "/health") ||
-			strings.HasSuffix(path, "/status") 
+			strings.HasSuffix(path, "/status")
 	}
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
