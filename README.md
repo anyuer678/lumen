@@ -39,28 +39,83 @@ Memory → Reasoning → Tools → Action
 SQLite    LLM API    Sandbox   Computer
 ```
 
-## Quick Start
+## Quick Start（首次运行 3 步走通）
 
-> **Token 级别说明**：`agent token <名称>` 默认签发 **L1（普通）**，适合自动化调用。要在 Dashboard 批准 L2 高危确认（破坏性命令等），请另用 `agent token <名称> --level 2` 签发交互用 token；L3 管理员仅限管理操作。
-
+### 1. 编译启动
 
 ```bash
 # 克隆
 git clone https://github.com/anyuer678/lumen.git
 cd lumen
 
-# 构建
-go build -o lumen ./cmd/agent
+# 编译后端
+go build -o lumen.exe ./cmd/agent
 
-# 运行
-./lumen serve
+# 编译前端（可选，Dashboard 需要）
+cd web && npm install && npm run build && cd ..
+
+# 启动
+./lumen.exe
 ```
+
+服务默认监听 `127.0.0.1:14000`，自动创建 SQLite 数据库。
+
+### 2. 创建管理员 Token（首次引导）
+
+首次启动时数据库为空，可通过 **bootstrap** 无认证创建第一个管理员 token：
+
+```bash
+# 创建 L3 管理员 token（首次运行时不需要认证）
+curl -X POST http://127.0.0.1:14000/v1/auth/token \
+  -H "Content-Type: application/json" \
+  -d '{"name":"admin","perm_level":3}'
+```
+
+响应会返回 token 明文（`agt_xxx...`），**请立即保存，仅显示一次**。
+
+> ⚠️ Bootstrap 限制：仅在数据库为空时有效；强制 L3 级别；第二个 token 必须带认证创建。
+
+### 3. 开始使用
+
+```bash
+TOKEN="agt_你的token"
+
+# 执行 shell 命令
+curl -X POST http://127.0.0.1:14000/v1/tools/shell.run/run \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"args":{"command":"echo hello from lumen"}}'
+
+# 读取文件
+curl -X POST http://127.0.0.1:14000/v1/tools/fs/run \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"args":{"action":"list","path":"."}}'
+
+# 查看可用工具
+curl http://127.0.0.1:14000/v1/tools/ -H "Authorization: Bearer $TOKEN"
+```
+
+打开浏览器访问 `http://127.0.0.1:14000` 可使用 Dashboard 界面。
+
+## Token 级别与 Scopes
+
+| 级别 | 用途 | 能做什么 |
+|---|---|---|
+| L0 | 只读 | 浏览器操控、安全分类查询 |
+| L1 | 普通操作 | Shell 命令、文件读写、系统信息 |
+| L2 | 危险操作 | 计算机控制、MCP 工具（需人工确认） |
+| L3 | 管理员 | Token 管理、MCP 注册、全部操作 |
+
+新创建的 token 默认带有以下 scopes：`tasks:create,tasks:control,confirm:approve,tools:run,mcp:register,token:manage,events:emit,kb:write,settings:write`
+
+访问受 scope 保护的端点时，token 必须包含对应 scope，否则返回 403。
 
 ## Tech Stack
 
 - **Backend**: Go 1.26 + chi + SQLite (WAL)
 - **Frontend**: React 18 + TypeScript + Vite
-- **Testing**: go test (46 tests)
+- **Testing**: go test (64 tests)
 
 ## Project Structure
 
