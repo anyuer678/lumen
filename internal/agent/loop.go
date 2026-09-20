@@ -470,47 +470,61 @@ func (l *Loop) checkToolPermission(ctx context.Context, tool string, args map[st
 
 // RunTool 运行指定工具（手动 /v1/tools/run 与 Chat tool_call 路径）。
 // 与任务路径 Run 共用同一道防线：PermissionEngine 策略判定 + 破坏性命令确认流。
-// 此前本函数直通 tool.Execute，任何拿到 token 的调用者都能无确认执行高危操作。
+// 安全硬化：策略 NeedConfirm 与破坏性命令分类合并为 **一次** 确认，避免双门死锁；
+// 确认服务不可用时 fail-closed 拒绝，绝不降级为直接执行。
 func (l *Loop) RunTool(ctx context.Context, name string, args map[string]any) (*ToolResult, error) {
 	tool, ok := l.tools[name]
 	if !ok {
 		return nil, fmt.Errorf("tool not found: %s", name)
 	}
 
-	// 权限策略：与任务路径同一策略表；NeedConfirm 进入确认流（fail-closed：
-	// 确认服务不可用时按拒绝处理，绝不降级为直接执行）
+	destructive := false
+	if name == "shell.run" {
+		if cmd, ok := args["command"].(string); ok && ClassifyCommand(cmd) == CommandDestructive {
+			destructive = true
+		}
+	}
+
+	var confirmDecision *auth.PermissionDecision
+
 	if l.permEngine != nil {
 		decision := l.checkToolPermission(ctx, name, args)
 		if !decision.Allowed && !decision.NeedConfirm {
 			return nil, fmt.Errorf("denied by policy: %s", decision.Reason)
 		}
 		if decision.NeedConfirm {
-			approved, err := l.confirmAdhoc(ctx, name, args, decision)
-			if err != nil {
-				return nil, fmt.Errorf("confirmation error: %w", err)
-			}
-			if !approved {
-				return nil, fmt.Errorf("denied by user confirmation")
-			}
+			d := decision
+			confirmDecision = &d
 		}
 	}
 
-	// 破坏性命令检测：与任务路径同一分类器，命中即确认
-	if name == "shell.run" {
-		if cmd, ok := args["command"].(string); ok && ClassifyCommand(cmd) == CommandDestructive {
-			confirmDecision := auth.PermissionDecision{
+	// 破坏性命令：若尚未进入确认，则强制进入；若已在确认，提升说明
+	if destructive {
+		if confirmDecision == nil {
+			confirmDecision = &auth.PermissionDecision{
 				Allowed:     false,
 				NeedConfirm: true,
 				Level:       auth.Level2Dangerous,
 				Reason:      fmt.Sprintf("破坏性命令需要确认（分类：%s）", CommandClassLabel(CommandDestructive)),
 			}
-			approved, err := l.confirmAdhoc(ctx, name, args, confirmDecision)
-			if err != nil {
-				return nil, fmt.Errorf("confirmation error: %w", err)
+		} else {
+			confirmDecision.Reason = confirmDecision.Reason + "; " +
+				fmt.Sprintf("破坏性命令分类：%s", CommandClassLabel(CommandDestructive))
+			if confirmDecision.Level < auth.Level2Dangerous {
+				confirmDecision.Level = auth.Level2Dangerous
 			}
-			if !approved {
-				return nil, fmt.Errorf("denied by user confirmation: destructive command rejected")
-			}
+		}
+	}
+
+	if confirmDecision != nil && confirmDecision.NeedConfirm {
+		approved, err := l.confirmAdhoc(ctx, name, args, *confirmDecision)
+		if err != nil {
+			return nil, fmt.Errorf("confirmation error: %w", err)
+		}
+		if !approved {
+			return nil, fmt.Errorf("denied by user confirmation")
+		}
+		if destructive {
 			ctx = WithDestructiveApproval(ctx)
 		}
 	}

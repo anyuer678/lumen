@@ -5,11 +5,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
-	"github.com/go-chi/chi/v5"
 	"agent/internal/agent"
 	"agent/internal/auth"
+	"github.com/go-chi/chi/v5"
 )
 
 // ToolHandler 工具处理器
@@ -43,21 +44,65 @@ type runToolRequest struct {
 	Args map[string]any `json:"args"`
 }
 
+// actionRequiredLevel 工具元信息 RequiredLevel 可能是「工具级下限」，
+// 对单工具多 action（fs）必须按 action 再收紧。
+func actionRequiredLevel(meta agent.ToolMeta, args map[string]any) int {
+	lvl := meta.RequiredLevel
+	if meta.Name == "fs" {
+		if action, ok := args["action"].(string); ok {
+			switch strings.ToLower(action) {
+			case "delete", "organize":
+				if lvl < 2 {
+					lvl = 2
+				}
+			case "write", "mkdir":
+				if lvl < 1 {
+					lvl = 1
+				}
+			case "read", "list", "exists":
+				// 保持工具级下限
+			}
+		}
+	}
+	if meta.Name == "shell.run" && lvl < 2 {
+		lvl = 2
+	}
+	if meta.Name == "computer" && lvl < 2 {
+		lvl = 2
+	}
+	if meta.Name == "mcp" && lvl < 2 {
+		lvl = 2
+	}
+	return lvl
+}
+
 func (h *ToolHandler) RunTool(w http.ResponseWriter, r *http.Request) {
 	name := chi.URLParam(r, "name")
 	var req runToolRequest
 	json.NewDecoder(r.Body).Decode(&req)
 
-	// 权限检查：工具 required_level 高于调用者 perm_level 则拒绝
-	if p := auth.PrincipalFromContext(r.Context()); p != nil {
-		meta, ok := findToolMeta(h.loop.ListTools(), name)
-		if ok && meta.RequiredLevel > p.PermLevel {
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"success": false,
-				"error":   fmt.Sprintf("权限不足：工具 %s 需要 L%d，你的 token 级别是 L%d", name, meta.RequiredLevel, p.PermLevel),
-			})
-			return
-		}
+	p := auth.PrincipalFromContext(r.Context())
+	if p == nil {
+		http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
+		return
+	}
+	// Scope 必须显式授予（空 scopes 默认 fail-closed，见 auth.HasScope）
+	if !p.HasScope("tools:run") {
+		http.Error(w, `{"error":"scope \"tools:run\" required but not granted"}`, http.StatusForbidden)
+		return
+	}
+
+	meta, ok := findToolMeta(h.loop.ListTools(), name)
+	need := 0
+	if ok {
+		need = actionRequiredLevel(meta, req.Args)
+	}
+	if need > p.PermLevel {
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": false,
+			"error":   fmt.Sprintf("权限不足：工具 %s 需要 L%d，你的 token 级别是 L%d", name, need, p.PermLevel),
+		})
+		return
 	}
 
 	ctx, cancel := context.WithTimeout(r.Context(), 60*time.Second)
@@ -85,7 +130,6 @@ func (h *ToolHandler) RunTool(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// findToolMeta 从工具列表中查找指定工具的元信息
 func findToolMeta(metas []agent.ToolMeta, name string) (agent.ToolMeta, bool) {
 	for _, m := range metas {
 		if m.Name == name {

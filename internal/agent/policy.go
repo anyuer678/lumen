@@ -8,17 +8,17 @@ import (
 
 // Policy 决策规则
 type Policy struct {
-	Name               string   `json:"name"`
-	EventType          EventType `json:"event_type"`
-	Enabled            bool     `json:"enabled"`
-	QuietHoursStart    int      `json:"quiet_hours_start"` // 24h format
-	QuietHoursEnd      int      `json:"quiet_hours_end"`
-	MaxActionsPerHour  int      `json:"max_actions_per_hour"`
-	AllowedTools       []string `json:"allowed_tools"`
-	RequireConfirm     bool     `json:"require_confirm"`
-	MinPriority        int      `json:"min_priority"`
-	Keywords           []string `json:"keywords"` // 需要匹配的关键词
-	MaxCostPerDay      float64  `json:"max_cost_per_day"`
+	Name              string    `json:"name"`
+	EventType         EventType `json:"event_type"`
+	Enabled           bool      `json:"enabled"`
+	QuietHoursStart   int       `json:"quiet_hours_start"`
+	QuietHoursEnd     int       `json:"quiet_hours_end"`
+	MaxActionsPerHour int       `json:"max_actions_per_hour"`
+	AllowedTools      []string  `json:"allowed_tools"`
+	RequireConfirm    bool      `json:"require_confirm"`
+	MinPriority       int       `json:"min_priority"`
+	Keywords          []string  `json:"keywords"`
+	MaxCostPerDay     float64   `json:"max_cost_per_day"`
 }
 
 // PolicyEngine 决策引擎
@@ -34,7 +34,10 @@ type actionRecord struct {
 	action    string
 }
 
-// NewPolicyEngine 创建决策引擎
+// NewPolicyEngine 创建决策引擎。
+// 安全默认与 conf/policy.yaml 对齐：
+// - 一切会调用 shell.run 的策略 RequireConfirm=true
+// - 不在代码默认里提供「静默 shell」路径
 func NewPolicyEngine() *PolicyEngine {
 	return &PolicyEngine{
 		policies: []Policy{
@@ -45,8 +48,8 @@ func NewPolicyEngine() *PolicyEngine {
 				QuietHoursStart:   23,
 				QuietHoursEnd:     8,
 				MaxActionsPerHour: 5,
-				AllowedTools:      []string{"fs", "browser"},
-				RequireConfirm:    false,
+				AllowedTools:      []string{"fs"},
+				RequireConfirm:    true, // 移动用户文件需确认（与 yaml auto_execute:false 一致）
 				MinPriority:       3,
 				Keywords:          []string{".pdf", ".docx", ".xlsx", ".png", ".jpg", ".zip"},
 			},
@@ -57,9 +60,10 @@ func NewPolicyEngine() *PolicyEngine {
 				QuietHoursStart:   23,
 				QuietHoursEnd:     8,
 				MaxActionsPerHour: 3,
-				AllowedTools:      []string{"shell.run"},
-				RequireConfirm:    false,
-				MinPriority:       5,
+				// 默认不自动 shell 重试；仅允许通知类，避免失败事件触发命令执行
+				AllowedTools:   []string{},
+				RequireConfirm: true,
+				MinPriority:    5,
 			},
 			{
 				Name:              "system_alert",
@@ -68,8 +72,8 @@ func NewPolicyEngine() *PolicyEngine {
 				QuietHoursStart:   0,
 				QuietHoursEnd:     0,
 				MaxActionsPerHour: 10,
-				AllowedTools:      []string{"windows", "shell.run", "system"},
-				RequireConfirm:    false,
+				AllowedTools:      []string{"windows", "system"},
+				RequireConfirm:    true,
 				MinPriority:       1,
 			},
 			{
@@ -79,7 +83,7 @@ func NewPolicyEngine() *PolicyEngine {
 				QuietHoursStart:   23,
 				QuietHoursEnd:     8,
 				MaxActionsPerHour: 2,
-				AllowedTools:      []string{"browser", "shell.run"},
+				AllowedTools:      []string{"browser"},
 				RequireConfirm:    true,
 				MinPriority:       7,
 			},
@@ -100,30 +104,25 @@ func (e *PolicyEngine) Evaluate(event Event) (bool, string, *Policy) {
 			continue
 		}
 
-		// 静默时段检查
 		if policy.QuietHoursStart != policy.QuietHoursEnd {
 			hour := time.Now().Hour()
 			if policy.QuietHoursStart > policy.QuietHoursEnd {
-				// 跨午夜：23-8
 				if hour >= policy.QuietHoursStart || hour < policy.QuietHoursEnd {
 					return false, "quiet_hours", &policy
 				}
 			} else {
-				// 不跨午夜：8-22
 				if hour >= policy.QuietHoursStart && hour < policy.QuietHoursEnd {
 					return false, "quiet_hours", &policy
 				}
 			}
 		}
 
-		// 频率限制
 		if policy.MaxActionsPerHour > 0 {
 			if e.countRecentActions(policy.Name, time.Hour) >= policy.MaxActionsPerHour {
 				return false, "rate_limited", &policy
 			}
 		}
 
-		// 关键词匹配
 		if len(policy.Keywords) > 0 {
 			payload := strings.ToLower(event.Payload)
 			matched := false
@@ -136,6 +135,13 @@ func (e *PolicyEngine) Evaluate(event Event) (bool, string, *Policy) {
 			if !matched {
 				continue
 			}
+		}
+
+		// 安全：需要确认的策略不得静默放行执行
+		if policy.RequireConfirm {
+			// 调用方（proactive/loop）必须尊重 returned policy.RequireConfirm 并进入确认流
+			e.recordAction(policy.Name)
+			return true, "approved_require_confirm", &policy
 		}
 
 		e.recordAction(policy.Name)
@@ -163,7 +169,6 @@ func (e *PolicyEngine) recordAction(policyName string) {
 		timestamp: time.Now(),
 		policy:    policyName,
 	})
-	// 只保留最近 100 条
 	if len(e.actionLog) > 100 {
 		e.actionLog = e.actionLog[len(e.actionLog)-100:]
 	}

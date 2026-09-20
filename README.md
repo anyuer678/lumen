@@ -1,3 +1,6 @@
+> **状态**：`portfolio` / `local-tool` · **非生产就绪** · 默认仅本机 `127.0.0.1`  
+> **安全**：见 [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md) 与 [docs/SECURITY.md](docs/SECURITY.md)  
+> **硬化**：空 scopes 不再等于全权；shell/fs:delete 默认需确认；`?token=` 仅限事件流  
 <p align="center">
   <strong>Lumen - 流明</strong>
 </p>
