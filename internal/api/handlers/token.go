@@ -152,7 +152,7 @@ func (h *TokenHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if req.Scopes == "" {
-		req.Scopes = "tasks:create,tasks:control,confirm:approve,tools:run,mcp:register,token:manage,events:emit,kb:write,settings:write"
+		req.Scopes = "tools:run,tasks:create"
 	}
 	if req.PermLevel == 0 {
 		req.PermLevel = 1

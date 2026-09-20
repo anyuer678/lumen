@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 )
@@ -54,11 +55,24 @@ type TokenPrincipal struct {
 	Scopes    string
 }
 
+// allowLegacyEmptyScopes 仅用于从旧版本迁移：
+// 历史行为「空 scopes = 全部权限」fail-open，升级后默认拒绝。
+// 迁移期设置环境变量 LUMEN_ALLOW_LEGACY_EMPTY_SCOPES=1 可暂时兼容，
+// 必须在 CHANGELOG 与启动日志中警告，并在迁完后删除该变量。
+func allowLegacyEmptyScopes() bool {
+	v := strings.TrimSpace(os.Getenv("LUMEN_ALLOW_LEGACY_EMPTY_SCOPES"))
+	return v == "1" || strings.EqualFold(v, "true")
+}
+
 // HasScope 检查 principal 是否拥有指定 scope。
-// 空 scopes 字段视为拥有所有 scope（向后兼容未设 scope 的旧 token）。
+// 安全默认：空 scopes 字段 **不** 视为拥有全部 scope（fail-closed）。
+// 仅当显式设置 LUMEN_ALLOW_LEGACY_EMPTY_SCOPES=1 时才保留旧行为（迁移期）。
 func (p *TokenPrincipal) HasScope(scope string) bool {
+	if p == nil {
+		return false
+	}
 	if p.Scopes == "" {
-		return true
+		return allowLegacyEmptyScopes()
 	}
 	for _, s := range strings.Split(p.Scopes, ",") {
 		if strings.TrimSpace(s) == scope {
@@ -68,8 +82,7 @@ func (p *TokenPrincipal) HasScope(scope string) bool {
 	return false
 }
 
-// RequireScope 返回一个 HTTP 中间件：检查调用者是否拥有指定 scope，
-// 缺失时返回 403。若 token 无 scopes 字段（旧 token），自动放行。
+// RequireScope 返回一个 HTTP 中间件：检查调用者是否拥有指定 scope，缺失时 403。
 func RequireScope(scope string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -87,8 +100,21 @@ func RequireScope(scope string) func(http.Handler) http.Handler {
 	}
 }
 
+// queryTokenAllowedPath 仅允许 SSE/事件流使用 ?token=（EventSource 无法带自定义头）。
+// 其它路径一律要求 Authorization / X-API-Token，避免 token 进入访问日志与浏览器历史。
+func queryTokenAllowedPath(path string) bool {
+	p := strings.ToLower(path)
+	switch {
+	case strings.Contains(p, "/events"),
+		strings.Contains(p, "/sse"),
+		strings.HasSuffix(p, "/stream"):
+		return true
+	default:
+		return false
+	}
+}
+
 // Verify 校验请求头中的 Bearer token，返回 principal。
-// 支持三种来源：Authorization: Bearer <token>、X-API-Token: <token>、?token=<token>。
 func (v *TokenVerifier) Verify(r *http.Request) (*TokenPrincipal, error) {
 	token := extractToken(r)
 	if token == "" {
@@ -126,8 +152,8 @@ func extractToken(r *http.Request) string {
 	if t := r.Header.Get("X-API-Token"); t != "" {
 		return strings.TrimSpace(t)
 	}
-	// SSE 的 EventSource 无法携带自定义头，允许 ?token= 查询参数（仅前端事件流使用）
-	if t := r.URL.Query().Get("token"); t != "" {
+	// ?token= 仅限 SSE/事件流路径
+	if t := r.URL.Query().Get("token"); t != "" && queryTokenAllowedPath(r.URL.Path) {
 		return strings.TrimSpace(t)
 	}
 	return ""
