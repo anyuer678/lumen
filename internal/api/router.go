@@ -86,7 +86,10 @@ func NewRouter(tm *task.Manager, sched *scheduler.Scheduler, db *sql.DB, mcpRegi
 		// 确认端点
 		if db != nil {
 			confirmHandler := handlers.NewConfirmHandler(auth.NewConfirmStore(db))
-			r.Mount("/confirmations", confirmHandler.Routes())
+			r.Group(func(r chi.Router) {
+				r.Use(auth.RequireScope("confirm:approve"))
+				r.Mount("/confirmations", confirmHandler.Routes())
+			})
 		}
 
 		// 设置端点（需要 settings:write scope）

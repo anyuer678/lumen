@@ -43,21 +43,30 @@ func NewPermissionEngine() *PermissionEngine {
 }
 
 // defaultPolicies 默认策略。
-// 键为 tool[:action]（action 由调用方从 args 取出拼上），
-// 与真实工具注册表对齐：fs/windows 是单工具多 action 分发。
+// 安全硬化：
+// - shell:run 默认 L2（需确认），避免 L1 token 静默开 shell
+// - fs 只读 L0；写 L1；delete/organize L2
+// - 未命中策略 fail-closed 为 L2
 func defaultPolicies() []Policy {
 	return []Policy{
-		{Pattern: "shell:*", Level: Level1Normal},
-		{Pattern: "shell:install", Level: Level2Dangerous},
+		{Pattern: "shell:*", Level: Level2Dangerous},
+		{Pattern: "shell:run", Level: Level2Dangerous},
+		{Pattern: "shell:install", Level: Level3Critical},
 		{Pattern: "shell:admin", Level: Level3Critical},
-		{Pattern: "fs:*", Level: Level1Normal},
+		{Pattern: "fs:read", Level: Level0ReadOnly},
+		{Pattern: "fs:list", Level: Level0ReadOnly},
+		{Pattern: "fs:exists", Level: Level0ReadOnly},
+		{Pattern: "fs:write", Level: Level1Normal},
+		{Pattern: "fs:mkdir", Level: Level1Normal},
+		{Pattern: "fs:organize", Level: Level2Dangerous},
 		{Pattern: "fs:delete", Level: Level2Dangerous}, // os.RemoveAll
+		{Pattern: "fs:*", Level: Level1Normal},
 		{Pattern: "browser:*", Level: Level0ReadOnly},
 		{Pattern: "browser:download", Level: Level1Normal},
 		{Pattern: "system:*", Level: Level1Normal},
 		{Pattern: "windows:*", Level: Level1Normal},
-		{Pattern: "windows:launch", Level: Level2Dangerous}, // 启动外部程序
-		{Pattern: "computer:*", Level: Level2Dangerous},     // 键鼠控制
+		{Pattern: "windows:launch", Level: Level2Dangerous},
+		{Pattern: "computer:*", Level: Level2Dangerous},
 		{Pattern: "mcp:*", Level: Level2Dangerous},
 		{Pattern: "subagent", Level: Level1Normal},
 		{Pattern: "safety:*", Level: Level0ReadOnly},
@@ -69,8 +78,6 @@ func (e *PermissionEngine) Check(tool string, userLevel PermissionLevel) Permiss
 	e.mu.RLock()
 	defer e.mu.RUnlock()
 
-	// 查找匹配的策略：最具体（最长 pattern）优先，
-	// 否则 "fs:*"(L1) 会按声明顺序先于 "fs:delete"(L2) 命中，架空细化策略
 	var matched *Policy
 	for i := range e.policies {
 		p := &e.policies[i]
@@ -85,7 +92,6 @@ func (e *PermissionEngine) Check(tool string, userLevel PermissionLevel) Permiss
 		matchedLevel = matched.Level
 	}
 
-	// 判定
 	if userLevel >= matchedLevel {
 		return PermissionDecision{
 			Allowed:     true,
@@ -95,7 +101,6 @@ func (e *PermissionEngine) Check(tool string, userLevel PermissionLevel) Permiss
 		}
 	}
 
-	// 需要确认
 	if matchedLevel >= Level2Dangerous {
 		return PermissionDecision{
 			Allowed:     false,
@@ -122,16 +127,12 @@ func (e *PermissionEngine) AddPolicy(policy Policy) {
 
 // matchPattern 匹配模式
 func matchPattern(tool, pattern string) bool {
-	// 简化版：支持通配符
 	if pattern == "*" {
 		return true
 	}
-
-	// 支持 shell:* 格式
 	if len(pattern) > 1 && pattern[len(pattern)-1] == '*' {
 		prefix := pattern[:len(pattern)-1]
 		return len(tool) >= len(prefix) && tool[:len(prefix)] == prefix
 	}
-
 	return tool == pattern
 }

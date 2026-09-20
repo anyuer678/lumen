@@ -51,7 +51,7 @@ var sandboxBlockedPaths = []string{
 
 func (t *ShellTool) Name() string        { return "shell.run" }
 func (t *ShellTool) Description() string { return "执行 shell 命令（支持超时）" }
-func (t *ShellTool) RequiredLevel() int  { return 1 }
+func (t *ShellTool) RequiredLevel() int  { return 2 }
 
 // checkCommandBlocked 检查命令是否命中黑名单
 // allow_unsafe=false 时返回 blocked
