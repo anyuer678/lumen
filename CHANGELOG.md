@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+### Security（Sprint1 权限硬化）
+- **空 API token scopes 不再等于全部权限**（fail-closed）；迁移：为旧 token 写入显式 scopes，或临时 `LUMEN_ALLOW_LEGACY_EMPTY_SCOPES=1`
+- `?token=` 查询参数鉴权 **仅** 允许 `/events`、`/sse`、`/stream`
+- `/confirmations` 需要 `confirm:approve` scope；批准仍校验 PermLevel ≥ 风险级别
+- 默认新 token scopes 最小化（`tools:run,tasks:create`）；bootstrap 管理员 token 仍可显式全量
+- `shell.run` / `fs:delete` 等策略升至 L2（需确认）；`ShellTool.RequiredLevel=2`
+- RunTool：策略确认与破坏性命令确认合并为 **单次** fail-closed 门
+- 文档：`docs/THREAT_MODEL.md`、`docs/SECURITY.md`
+
+
 - 9095d83 ci: lumen CI 加 govulncheck 漏洞扫描
 - 63f7b62 feat: useSSE 断线自动重连（指数退避 1s→30s）
 - a68d446 feat: 多模型回退链（FallbackProvider 自动切换备用 provider）
