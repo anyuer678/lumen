@@ -9,38 +9,72 @@ import (
 	"runtime"
 	"strings"
 	"time"
+
+	"agent/internal/config"
 )
 
 // ArgvTool argv 白名单执行工具：不经 shell 字符串解释，直接 exec.Command(bin, args...)。
 // 相比 shell.run：无元字符展开、无管道/重定向语义、二进制名必须在白名单内。
 // 这是默认推荐的命令执行面；字符串 shell.run 仅在 permissions.shell_profile=full 时启用。
+//
+// Sprint3：默认白名单仅保留只读/诊断类命令；python/node/git 等高副作用二进制
+// 必须经 permissions.argv_extra_allow 显式 opt-in。
 type ArgvTool struct {
 	sandbox       bool
 	workspaceRoot string
-	// allow 为空时使用 defaultArgvAllowlist
+	// allow 为空时使用 defaultArgvAllowlist（+ 已配置的 extra）
 	allow map[string]bool
 }
 
 // defaultArgvAllowlist 允许的二进制 basename（小写）。
-// 仅收录低副作用/只读诊断类；安装、删除、注册表等一律不在此列。
+// 仅收录低副作用/只读诊断类；安装、删除、解释器、包管理器一律不在此列。
 var defaultArgvAllowlist = []string{
-	"echo", "ls", "dir", "cat", "pwd", "where", "whoami",
-	"ping", "nslookup", "netstat", "ipconfig", "systeminfo", "tasklist",
-	"git", "go", "python", "python3", "node", "npm",
+	"ls", "dir", "echo", "cat", "type",
+	"ping", "ipconfig", "ifconfig", "hostname", "date", "whoami", "pwd",
+	"true", "false", "where", "nslookup", "netstat", "systeminfo", "tasklist",
 }
 
-// NewArgvTool 创建 argv 白名单工具。
+// ArgvExtraAllowCandidates 文档/测试用：这些二进制可造成任意代码执行或系统变更，
+// 默认禁止，须通过 permissions.argv_extra_allow 显式加入。
+var ArgvExtraAllowCandidates = []string{
+	"git", "go", "python", "python3", "node", "npm", "npx",
+	"powershell", "pwsh", "cmd", "bash", "sh",
+	"curl", "wget", "certutil", "bitsadmin",
+}
+
+// NewArgvTool 创建 argv 白名单工具（默认安全列表 + config 中的 extra_allow）。
 func NewArgvTool(workspaceRoot string, sandbox bool) *ArgvTool {
-	allow := make(map[string]bool, len(defaultArgvAllowlist))
+	return NewArgvToolWithAllow(workspaceRoot, sandbox, config.ArgvExtraAllow())
+}
+
+// NewArgvToolWithAllow 创建 argv 工具，并叠加额外白名单（测试/显式策略用）。
+func NewArgvToolWithAllow(workspaceRoot string, sandbox bool, extra []string) *ArgvTool {
+	allow := make(map[string]bool, len(defaultArgvAllowlist)+len(extra))
 	for _, b := range defaultArgvAllowlist {
 		allow[b] = true
+	}
+	for _, b := range extra {
+		base := normalizeArgvBin(b)
+		if base == "" {
+			continue
+		}
+		// 仍拒绝路径形式的 extra，防止配置被用来注入任意 exe 路径
+		if strings.ContainsAny(base, `/\`) || strings.Contains(base, ":") {
+			continue
+		}
+		allow[base] = true
 	}
 	return &ArgvTool{sandbox: sandbox, workspaceRoot: workspaceRoot, allow: allow}
 }
 
+func normalizeArgvBin(bin string) string {
+	base := strings.ToLower(strings.TrimSpace(bin))
+	return strings.TrimSuffix(base, ".exe")
+}
+
 func (t *ArgvTool) Name() string { return "exec.argv" }
 func (t *ArgvTool) Description() string {
-	return "argv 白名单执行：不经 shell，直接启动白名单二进制（推荐替代 shell.run）"
+	return "argv 白名单执行：不经 shell，直接启动白名单二进制（推荐替代 shell.run；默认仅只读诊断命令）"
 }
 func (t *ArgvTool) RequiredLevel() int { return 1 }
 
@@ -56,6 +90,10 @@ func (t *ArgvTool) ArgvAllowlist() []string {
 // argvShellMetachars 参数中禁止出现的 shell 元字符（即使 shell=False，也拒绝以消除语义混淆）。
 var argvShellMetachars = []string{";", "&&", "||", "|", ">", "<", "`", "$(", "\n", "\r"}
 
+// checkArgvSafe 校验参数：
+// - 禁止 shell 元字符
+// - 禁止绝对路径与路径分隔符（阻止读写任意路径 / LOLBin 路径注入）
+// - 禁止环境变量风格（$VAR / %VAR%），阻止间接展开
 func checkArgvSafe(args []string) error {
 	for _, a := range args {
 		for _, m := range argvShellMetachars {
@@ -63,13 +101,27 @@ func checkArgvSafe(args []string) error {
 				return fmt.Errorf("argv 参数包含禁止的元字符 %q: %q", m, a)
 			}
 		}
+		// 绝对路径：Unix /、Windows 盘符 C:\ 或 UNC \\
+		if strings.HasPrefix(a, "/") || strings.HasPrefix(a, `\`) {
+			return fmt.Errorf("argv 参数禁止绝对路径: %q", a)
+		}
+		if len(a) >= 2 && a[1] == ':' && ((a[0] >= 'A' && a[0] <= 'Z') || (a[0] >= 'a' && a[0] <= 'z')) {
+			return fmt.Errorf("argv 参数禁止绝对路径: %q", a)
+		}
+		// 路径分隔符
+		if strings.ContainsAny(a, `/\`) {
+			return fmt.Errorf("argv 参数禁止路径分隔符: %q", a)
+		}
+		// 环境变量风格：$FOO / %FOO%
+		if strings.Contains(a, "$") || strings.Contains(a, "%") {
+			return fmt.Errorf("argv 参数禁止环境变量样式: %q", a)
+		}
 	}
 	return nil
 }
 
 func (t *ArgvTool) binaryAllowed(bin string) (string, bool) {
-	base := strings.ToLower(strings.TrimSpace(bin))
-	base = strings.TrimSuffix(base, ".exe")
+	base := normalizeArgvBin(bin)
 	// 只允许 basename，禁止路径形式，防止绕过白名单启动任意 exe
 	if strings.ContainsAny(base, `/\`) || strings.Contains(base, ":") {
 		return "", false
@@ -110,7 +162,7 @@ func (t *ArgvTool) Execute(ctx context.Context, args map[string]any) (*ToolResul
 	base, ok := t.binaryAllowed(binRaw)
 	if !ok {
 		return &ToolResult{
-			Raw:     fmt.Sprintf("argv 白名单拒绝二进制：%s（不在 allowlist）", binRaw),
+			Raw:     fmt.Sprintf("argv 白名单拒绝二进制：%s（不在 allowlist；高副作用二进制需 permissions.argv_extra_allow）", binRaw),
 			Kind:    "text",
 			Summary: "argv denied: " + binRaw,
 		}, fmt.Errorf("binary not in argv allowlist: %s", binRaw)
@@ -153,14 +205,13 @@ func (t *ArgvTool) Execute(ctx context.Context, args map[string]any) (*ToolResul
 	timeoutCtx, cancel := context.WithTimeout(ctx, time.Duration(timeoutSecs)*time.Second)
 	defer cancel()
 
-	// Windows 上 dir/cmd 内建无法直接 exec——dir 映射为 cmd 的内建仍走 cmd /c 仅当 bin 白名单且参数无元字符
-	// 但为了保持「无 shell」承诺：dir/ls 在 Windows 用 exec.LookPath；找不到则报错，不回退 shell。
+	// Windows 上 dir/type/cmd 内建无法直接 exec——dir/type 映射为 cmd 的内建仍走 cmd /c
+	// 仅当 bin 白名单且参数无元字符/路径/环境变量。找不到则报错，不回退任意 shell。
 	if runtime.GOOS == "windows" && base == "ls" {
 		base = "dir" // 仍可能不存在；不自动 shell
 	}
-	if runtime.GOOS == "windows" && base == "dir" {
-		// Windows 没有独立 dir.exe：用 cmd 仅执行内建 dir，参数已过元字符检查
-		fullArgs := append([]string{"/c", "dir"}, binArgs...)
+	if runtime.GOOS == "windows" && (base == "dir" || base == "type") {
+		fullArgs := append([]string{"/c", base}, binArgs...)
 		cmd := exec.CommandContext(timeoutCtx, "cmd.exe", fullArgs...)
 		if workDir != "" {
 			cmd.Dir = workDir

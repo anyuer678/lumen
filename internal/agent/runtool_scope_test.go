@@ -194,6 +194,7 @@ func TestFilesystemActionRequiredLevel(t *testing.T) {
 }
 
 // argv 工具：拒绝非白名单与元字符；允许 echo。
+// Sprint3：python/node/git 默认拒绝；参数禁路径与环境变量样式。
 func TestArgvToolAllowlistAndMetachar(t *testing.T) {
 	_, workspace := newTestLoop(t)
 	tool := NewArgvTool(workspace, true)
@@ -203,6 +204,13 @@ func TestArgvToolAllowlistAndMetachar(t *testing.T) {
 	_, err := tool.Execute(ctx, map[string]any{"bin": "curl", "args": []any{"http://evil"}})
 	if err == nil {
 		t.Fatal("curl must be denied by argv allowlist")
+	}
+
+	// Sprint3：解释器默认禁止
+	for _, bin := range []string{"python", "node", "git"} {
+		if _, err := tool.Execute(ctx, map[string]any{"bin": bin, "args": []any{"--version"}}); err == nil {
+			t.Fatalf("%s must be denied by default argv allowlist", bin)
+		}
 	}
 
 	// 路径形式绕过
@@ -217,7 +225,17 @@ func TestArgvToolAllowlistAndMetachar(t *testing.T) {
 		t.Fatal("metachar in args must be denied")
 	}
 
-	// 白名单 echo 成功
+	// 路径 / 环境变量参数
+	_, err = tool.Execute(ctx, map[string]any{"bin": "echo", "args": []any{"/etc/passwd"}})
+	if err == nil {
+		t.Fatal("absolute path arg must be denied")
+	}
+	_, err = tool.Execute(ctx, map[string]any{"bin": "echo", "args": []any{"%PATH%"}})
+	if err == nil {
+		t.Fatal("env-style arg must be denied")
+	}
+
+	// 白名单 echo 成功（无路径/env 参数）
 	res, err := tool.Execute(ctx, map[string]any{"bin": "echo", "args": []any{"hello-argv"}})
 	if err != nil {
 		// Windows 可能没有 echo.exe——接受「二进制不存在」以外的失败

@@ -60,6 +60,11 @@ type Config struct {
 		//   argv-only — 默认推荐；禁用字符串 shell.run，仅允许 argv 白名单工具
 		//   full      — 显式 opt-in：保留字符串 shell（仍要求 L2+确认；破坏性命令仍拦截）
 		ShellProfile string `yaml:"shell_profile"`
+		// ComputerUseEnabled Computer Use 默认关闭（false）。需显式 true 才注册/执行 computer 工具。
+		ComputerUseEnabled bool `yaml:"computer_use_enabled"`
+		// ArgvExtraAllow 高副作用二进制的 opt-in 白名单（git/python/node 等）。
+		// 默认为空：仅允许只读/诊断类命令。
+		ArgvExtraAllow []string `yaml:"argv_extra_allow"`
 	} `yaml:"permissions"`
 
 	Observability struct {
@@ -77,8 +82,16 @@ type Config struct {
 	} `yaml:"browser"`
 
 	MCP struct {
+		// Enabled MCP 默认关闭（false）。需显式 true 才允许 mcp.register / 配置的 servers 启动。
+		Enabled bool            `yaml:"enabled"`
 		Servers []McpServerConfig `yaml:"servers"`
 	} `yaml:"mcp"`
+
+	Bootstrap struct {
+		// SecretFile 一次性 bootstrap secret 文件路径（要求 0600）。
+		// 空则默认 ./data/bootstrap.secret，或环境变量 LUMEN_BOOTSTRAP_SECRET_FILE。
+		SecretFile string `yaml:"secret_file"`
+	} `yaml:"bootstrap"`
 }
 
 // McpServerConfig MCP 服务器配置（对应 pgi 等外部工具）
@@ -137,6 +150,10 @@ func defaultConfig() *Config {
 	// 默认禁止「无确认的自由字符串 shell」：strict 档仍可用 shell.run，但每次强制确认。
 	// 需要完全禁用字符串 shell 时设为 argv-only；需要放开时显式设为 full。
 	cfg.Permissions.ShellProfile = "strict"
+	// Sprint3：高危面默认关闭——computer-use 与 MCP 均需显式 opt-in。
+	cfg.Permissions.ComputerUseEnabled = false
+	cfg.Permissions.ArgvExtraAllow = nil
+	cfg.MCP.Enabled = false
 	cfg.Observability.MetricsEnabled = true
 	cfg.Observability.AuditEnabled = true
 	cfg.Observability.LogLevel = "info"
@@ -230,6 +247,56 @@ func (c *Config) ShellProfile() string {
 func (c *Config) StringShellAllowed() bool {
 	return c.ShellProfile() == ShellProfileFull
 }
+
+// ComputerUseEnabled 返回是否启用 Computer Use 工具（默认 false）。
+func (c *Config) ComputerUseEnabled() bool {
+	if c == nil {
+		return false
+	}
+	return c.Permissions.ComputerUseEnabled
+}
+
+// MCPEnabled 返回是否启用 MCP 注册/调用（默认 false）。
+func (c *Config) MCPEnabled() bool {
+	if c == nil {
+		return false
+	}
+	return c.MCP.Enabled
+}
+
+// ArgvExtraAllow 返回 argv 额外白名单（默认空）。
+func (c *Config) ArgvExtraAllow() []string {
+	if c == nil {
+		return nil
+	}
+	return c.Permissions.ArgvExtraAllow
+}
+
+// BootstrapSecretFile 返回 bootstrap secret 文件路径（可配置/env/默认）。
+func (c *Config) BootstrapSecretFile() string {
+	if c != nil && strings.TrimSpace(c.Bootstrap.SecretFile) != "" {
+		return strings.TrimSpace(c.Bootstrap.SecretFile)
+	}
+	if v := strings.TrimSpace(os.Getenv("LUMEN_BOOTSTRAP_SECRET_FILE")); v != "" {
+		return v
+	}
+	return BootstrapSecretFileDefault
+}
+
+// BootstrapSecretFileDefault 默认的一次性 bootstrap secret 路径。
+const BootstrapSecretFileDefault = "./data/bootstrap.secret"
+
+// ComputerUseEnabled 全局便捷函数。
+func ComputerUseEnabled() bool { return Get().ComputerUseEnabled() }
+
+// MCPEnabled 全局便捷函数。
+func MCPEnabled() bool { return Get().MCPEnabled() }
+
+// ArgvExtraAllow 全局便捷函数。
+func ArgvExtraAllow() []string { return Get().ArgvExtraAllow() }
+
+// BootstrapSecretFile 全局便捷函数。
+func BootstrapSecretFile() string { return Get().BootstrapSecretFile() }
 
 // Save 将当前配置持久化到配置文件
 func Save() error {

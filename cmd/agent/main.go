@@ -57,6 +57,12 @@ func main() {
 				os.Exit(1)
 			}
 			return
+		case "bootstrap-secret":
+			if err := runBootstrapSecret(); err != nil {
+				fmt.Fprintf(os.Stderr, "bootstrap-secret error: %v\n", err)
+				os.Exit(1)
+			}
+			return
 		case "status":
 			if err := loadConfig(); err != nil {
 				fmt.Fprintf(os.Stderr, "config error: %v\n", err)
@@ -171,6 +177,30 @@ func runToken() error {
 	fmt.Println("   Authorization: Bearer <token>   # 或")
 	fmt.Println("   X-API-Token: <token>")
 	fmt.Println("级别说明：0=只读 1=普通（默认） 2=危险（可批准 L2 高危确认） 3=管理员（--level 3）")
+	return nil
+}
+
+// runBootstrapSecret 生成/读取一次性 bootstrap secret（0600）。
+// 用于空库 HTTP 引导：loopback 绑定 + loopback 来源 + 此 secret 才能创建首个 L3 token。
+// 首选路径仍是本机 CLI `agent token admin --level 3`。
+func runBootstrapSecret() error {
+	path := auth.BootstrapSecretFileDefault
+	if v := strings.TrimSpace(os.Getenv("LUMEN_BOOTSTRAP_SECRET_FILE")); v != "" {
+		path = v
+	}
+	if len(os.Args) > 2 && !strings.HasPrefix(os.Args[2], "-") {
+		path = os.Args[2]
+	}
+	secret, err := auth.EnsureBootstrapSecret(path)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("bootstrap secret ready: %s\n", path)
+	fmt.Printf("Header %s: %s\n\n", auth.BootstrapSecretHeader, secret)
+	fmt.Println("空库 HTTP 引导（仅 loopback 绑定 + loopback 来源）：")
+	fmt.Printf("  curl -X POST http://127.0.0.1:<port>/v1/auth/token -H '%s: %s' -H 'Content-Type: application/json' -d '{\"name\":\"admin\",\"perm_level\":3}'\n",
+		auth.BootstrapSecretHeader, secret)
+	fmt.Println("用后请删除 secret 文件。更推荐本机 CLI：agent token admin --level 3")
 	return nil
 }
 

@@ -4,6 +4,21 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+### Security（Sprint3 攻击面再收敛）
+- **exec.argv 默认白名单收紧**：移除 `python/node/git/go/npm` 等高副作用二进制
+  - 默认仅保留只读/诊断命令：`ls/dir/echo/cat/type/ping/ipconfig/ifconfig/hostname/date/whoami/pwd/true/false/where/...`
+  - 高副作用二进制需显式 `permissions.argv_extra_allow`（basename；拒绝路径形式）
+  - 参数校验加严：拒绝绝对路径、路径分隔符、环境变量样式（`$VAR` / `%VAR%`）
+- **Computer Use / MCP 默认关闭**（不仅 require confirm）
+  - `permissions.computer_use_enabled: false`（默认不注册 computer；Execute/RunTool 拒绝）
+  - `mcp.enabled: false`（默认不 Attach/不启动 servers；`mcp.register` HTTP 与 `McpRegistry.Register` 拒绝）
+  - conf/policy.yaml `features.computer_use/mcp_register: false`；事件策略代码默认同步 `auto_execute: false` 且不含 shell/computer/mcp
+- **Bootstrap L3 空库门**
+  - 空库未认证 HTTP 建 L3 token **默认拒绝**
+  - 仅当：服务绑定 loopback **且** 请求来源 loopback，**且**（0600 bootstrap secret 文件 + 匹配头 `X-Lumen-Bootstrap-Secret` **或** 本地交互确认 `LUMEN_BOOTSTRAP_INTERACTIVE=1` + `X-Lumen-Bootstrap-Confirm: local-ok`）
+  - 新增 CLI：`agent bootstrap-secret`；首选仍是本机 `agent token admin --level 3`
+- 文档：`docs/THREAT_MODEL.md` 残余风险 R3/R4/R9/R10；`docs/SECURITY.md` 迁移表；Sprint3 CHANGELOG
+
 ### Security（Sprint2 攻击面收敛）
 - **`permissions.shell_profile` 默认 `strict`**：默认策略永不提供无 opt-in 的自由字符串 shell
   - `strict`（默认）：`shell.run` 每次强制 L2 + 人工确认 + audit_logs
@@ -48,4 +63,3 @@ All notable changes to this project will be documented in this file.
 - e845521 fix: Tools.tsx 移除硬编码路径改用 HOME
 - a87b965 fix(security): 示例配置 host 改 127.0.0.1、占位 key 改 env 引用、修复 ss 笔误
 - 94c272a fix(security): 移除 /events 认证豁免
-
