@@ -1,4 +1,4 @@
-﻿server:
+server:
     host: 127.0.0.1
     port: 18080
     api_token_ttl: 365d
@@ -68,6 +68,11 @@ scheduler:
 permissions:
     policy_file: ./conf/permission.yaml
     confirm_timeout: 60s
+    # shell_profile 控制字符串 shell.run：
+    #   strict    （默认）shell.run 可用，但每次强制 L2+确认+审计
+    #   argv-only 禁用 shell.run，仅允许 exec.argv 白名单工具（最安全）
+    #   full      显式 opt-in：放开字符串 shell（仍要求 L2+确认；破坏性命令仍拦截）
+    shell_profile: strict
 observability:
     metrics_enabled: true
     audit_enabled: true

@@ -163,8 +163,8 @@ func (h *ChatHandler) SendMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 使用 Agent Loop 处理消息
-	response := h.processMessage(req.Content, sessionID)
+	// 使用 Agent Loop 处理消息（传递认证 principal，供 RunTool 做 scope/perm 校验）
+	response := h.processMessage(r.Context(), req.Content, sessionID)
 
 	// 流式输出
 	content := ""
@@ -192,7 +192,7 @@ func (h *ChatHandler) SendMessage(w http.ResponseWriter, r *http.Request) {
 }
 
 // processMessage 处理消息（意图路由 + Agent 自主分析）
-func (h *ChatHandler) processMessage(message string, sessionID string) string {
+func (h *ChatHandler) processMessage(ctx context.Context, message string, sessionID string) string {
 	// 1. 先用意图路由器（预设规则，节约算力）
 	router := agent.NewIntentRouter(nil)
 	intent := router.Route(message)
@@ -205,7 +205,7 @@ func (h *ChatHandler) processMessage(message string, sessionID string) string {
 		return intent.Message
 
 	case "tool_call":
-		return h.executeTool(intent)
+		return h.executeTool(ctx, intent)
 
 	case "remember":
 		return h.remember(intent)
@@ -221,7 +221,7 @@ func (h *ChatHandler) processMessage(message string, sessionID string) string {
 }
 
 // executeTool 执行工具（真实调用）
-func (h *ChatHandler) executeTool(intent agent.Intent) string {
+func (h *ChatHandler) executeTool(ctx context.Context, intent agent.Intent) string {
 	// 特殊处理：创建任务（用 taskManager 真正创建）
 	if intent.Tool == "_create_task" {
 		return h.createTask(intent)
@@ -242,10 +242,13 @@ func (h *ChatHandler) executeTool(intent agent.Intent) string {
 		return fmt.Sprintf("Agent 未初始化，无法执行工具 `%s`", intent.Tool)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	ctx, cancel := context.WithTimeout(ctx, 60*time.Second)
 	defer cancel()
 
-	// 真实执行工具
+	// 真实执行工具（RunTool 内再做 scope/perm/confirm/审计）
 	result, err := h.agentLoop.RunTool(ctx, intent.Tool, intent.Args)
 	if err != nil {
 		return fmt.Sprintf("❌ 工具执行失败：%v\n\n参数：%v", err, intent.Args)

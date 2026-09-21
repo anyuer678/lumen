@@ -152,7 +152,7 @@ func (h *TokenHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if req.Scopes == "" {
-		req.Scopes = "tools:run,tasks:create"
+		req.Scopes = auth.DefaultTokenScopes
 	}
 	if req.PermLevel == 0 {
 		req.PermLevel = 1
@@ -163,6 +163,10 @@ func (h *TokenHandler) Create(w http.ResponseWriter, r *http.Request) {
 		if req.PermLevel != 3 {
 			http.Error(w, `{"error":"首次创建 token 必须为 L3 管理员级别"}`, http.StatusForbidden)
 			return
+		}
+		// bootstrap 必须具备管理 scopes，否则 L3 token 无法调用 token:manage 等接口
+		if req.Scopes == auth.DefaultTokenScopes || req.Scopes == "" {
+			req.Scopes = auth.AdminTokenScopes
 		}
 	} else {
 		// 正常模式：防止提权——调用者不能签发比自己更高级别的 token

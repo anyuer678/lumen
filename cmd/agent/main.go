@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	"agent/internal/agent"
+	"agent/internal/auth"
 	"agent/internal/config"
 	agentDB "agent/internal/db"
 	"agent/internal/llm"
@@ -146,11 +147,12 @@ func runToken() error {
 	tokenStr := "agt_" + hex.EncodeToString(raw)
 	hash := sha256.Sum256([]byte(tokenStr))
 
-	scopes := "tools,chat,tasks,confirm"
+	// scopes 必须与 auth.HasScope / RequireScope 的冒号命名一致
+	scopes := auth.DefaultTokenScopes
 	if level >= 3 {
-		scopes = "admin"
+		scopes = auth.AdminTokenScopes
 	} else if level == 0 {
-		scopes = "read"
+		scopes = "" // L0 只读：空 scopes fail-closed，无法调用 tools:run
 	}
 
 	_, err = db.Exec(

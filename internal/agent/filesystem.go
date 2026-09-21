@@ -23,9 +23,31 @@ func NewFilesystemTool(workspaceRoot string, sandbox bool) *FilesystemTool {
 	}
 }
 
-func (t *FilesystemTool) Name() string        { return "fs" }
-func (t *FilesystemTool) Description() string { return "文件系统操作（read/write/list/exists/mkdir/delete/organize）" }
-func (t *FilesystemTool) RequiredLevel() int  { return 0 }
+func (t *FilesystemTool) Name() string { return "fs" }
+func (t *FilesystemTool) Description() string {
+	return "文件系统操作（read/write/list/exists/mkdir/delete/organize；写/删需 L2）"
+}
+
+// RequiredLevel 返回工具级下限（只读动作 L0）。
+// 写/删/整理等能力级别由 ActionRequiredLevel / PermissionEngine 按 action 收紧，
+// 避免「工具标 L0 → delete 被当成只读」的权限模型错位。
+func (t *FilesystemTool) RequiredLevel() int { return 0 }
+
+// ActionRequiredLevel 映射 fs action 到权限下限：
+//   - read/list/exists: L0 只读
+//   - write/mkdir/organize/delete: L2（需确认；与 permission 策略表一致）
+//
+// 未知 action 返回 L2（fail-closed）。
+func (t *FilesystemTool) ActionRequiredLevel(action string) int {
+	switch strings.ToLower(strings.TrimSpace(action)) {
+	case "read", "list", "exists":
+		return 0
+	case "write", "mkdir", "organize", "delete":
+		return 2
+	default:
+		return 2
+	}
+}
 
 func (t *FilesystemTool) Execute(ctx context.Context, args map[string]any) (*ToolResult, error) {
 	action, _ := args["action"].(string)

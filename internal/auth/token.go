@@ -55,6 +55,27 @@ type TokenPrincipal struct {
 	Scopes    string
 }
 
+// Scope 常量：与 RequireScope / HasScope 字符串严格一致。
+const (
+	ScopeToolsRun      = "tools:run"
+	ScopeTasksCreate   = "tasks:create"
+	ScopeTasksControl  = "tasks:control"
+	ScopeConfirmApprove = "confirm:approve"
+	ScopeMCPRegister   = "mcp:register"
+	ScopeTokenManage   = "token:manage"
+	ScopeEventsEmit    = "events:emit"
+	ScopeKBWrite       = "kb:write"
+	ScopeSettingsWrite = "settings:write"
+)
+
+// DefaultTokenScopes 新签发 token 的最小 scopes。
+const DefaultTokenScopes = ScopeToolsRun + "," + ScopeTasksCreate
+
+// AdminTokenScopes bootstrap / L3 管理员 token 的全量 scopes。
+const AdminTokenScopes = ScopeToolsRun + "," + ScopeTasksCreate + "," + ScopeTasksControl +
+	"," + ScopeConfirmApprove + "," + ScopeMCPRegister + "," + ScopeTokenManage +
+	"," + ScopeEventsEmit + "," + ScopeKBWrite + "," + ScopeSettingsWrite
+
 // allowLegacyEmptyScopes 仅用于从旧版本迁移：
 // 历史行为「空 scopes = 全部权限」fail-open，升级后默认拒绝。
 // 迁移期设置环境变量 LUMEN_ALLOW_LEGACY_EMPTY_SCOPES=1 可暂时兼容，
