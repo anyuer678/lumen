@@ -25,6 +25,8 @@ policies:
         - fs
 
   # 任务失败自动重试
+  # 安全：默认不自动执行 shell；仅通知。如需 shell 重试，必须显式改为
+  # auto_execute: true + require_confirm: true，并确保 shell_profile 允许。
   - name: task_auto_retry
     event_type: task.failed
     enabled: true
@@ -34,11 +36,10 @@ policies:
     max_per_hour: 3
     min_priority: 5
     action:
-      notify: false
+      notify: true
       auto_execute: false
       require_confirm: true
-      tools:
-        - shell.run
+      tools: []
 
   # 系统告警
   - name: system_alert
@@ -51,6 +52,7 @@ policies:
       auto_execute: false
 
   # Webhook 研究
+  # 安全：默认不自动执行 shell；浏览器类工具也需确认。
   - name: webhook_research
     event_type: webhook.received
     enabled: true
@@ -65,4 +67,3 @@ policies:
       require_confirm: true
       tools:
         - browser
-        - shell.run

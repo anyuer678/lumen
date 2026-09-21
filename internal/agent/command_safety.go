@@ -9,6 +9,9 @@ import (
 // destructiveApprovalKey 破坏性命令经人工确认后的单步放行标记（context 传递）。
 type destructiveApprovalKey struct{}
 
+// shellApprovalKey 字符串 shell.run 经确认流批准后的放行标记（strict/argv-only 档必需）。
+type shellApprovalKey struct{}
+
 // WithDestructiveApproval 标记当前调用链中的破坏性命令已经过人工确认。
 func WithDestructiveApproval(ctx context.Context) context.Context {
 	return context.WithValue(ctx, destructiveApprovalKey{}, true)
@@ -17,6 +20,19 @@ func WithDestructiveApproval(ctx context.Context) context.Context {
 // DestructiveApproved 返回当前调用链是否携带人工确认放行标记。
 func DestructiveApproved(ctx context.Context) bool {
 	v, _ := ctx.Value(destructiveApprovalKey{}).(bool)
+	return v
+}
+
+// WithShellApproval 标记当前调用链中的 shell.run 已经过人工确认
+// （strict/argv-only 档下每一次字符串 shell 都需要）。
+func WithShellApproval(ctx context.Context) context.Context {
+	ctx = context.WithValue(ctx, shellApprovalKey{}, true)
+	return context.WithValue(ctx, destructiveApprovalKey{}, true)
+}
+
+// ShellApproved 返回当前调用链是否携带 shell 人工确认放行标记。
+func ShellApproved(ctx context.Context) bool {
+	v, _ := ctx.Value(shellApprovalKey{}).(bool)
 	return v
 }
 

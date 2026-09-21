@@ -46,34 +46,37 @@ type runToolRequest struct {
 
 // actionRequiredLevel 工具元信息 RequiredLevel 可能是「工具级下限」，
 // 对单工具多 action（fs）必须按 action 再收紧。
+// 委托 agent.EffectiveRequiredLevel，避免 handler 与 RunTool 两套逻辑漂移。
 func actionRequiredLevel(meta agent.ToolMeta, args map[string]any) int {
-	lvl := meta.RequiredLevel
-	if meta.Name == "fs" {
-		if action, ok := args["action"].(string); ok {
-			switch strings.ToLower(action) {
-			case "delete", "organize":
-				if lvl < 2 {
-					lvl = 2
-				}
-			case "write", "mkdir":
-				if lvl < 1 {
-					lvl = 1
-				}
-			case "read", "list", "exists":
-				// 保持工具级下限
-			}
-		}
-	}
-	if meta.Name == "shell.run" && lvl < 2 {
-		lvl = 2
-	}
-	if meta.Name == "computer" && lvl < 2 {
-		lvl = 2
-	}
-	if meta.Name == "mcp" && lvl < 2 {
-		lvl = 2
-	}
+	// 构造仅带 Name/RequiredLevel 的轻量 Tool 适配，复用统一计算
+	lvl := agent.EffectiveRequiredLevel(metaTool{meta}, meta.Name, args)
 	return lvl
+}
+
+// metaTool 把 ToolMeta 适配为 EffectiveRequiredLevel 所需的最小接口。
+type metaTool struct{ m agent.ToolMeta }
+
+func (t metaTool) Name() string                   { return t.m.Name }
+func (t metaTool) Description() string            { return "" }
+func (t metaTool) RequiredLevel() int             { return t.m.RequiredLevel }
+func (t metaTool) Execute(context.Context, map[string]any) (*agent.ToolResult, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
+// fsActionLeveler 供 EffectiveRequiredLevel 识别 fs action 下限。
+// （FilesystemTool 本体在 agent 包；handler 侧用相同映射。）
+func (t metaTool) ActionRequiredLevel(action string) int {
+	if t.m.Name != "fs" {
+		return t.m.RequiredLevel
+	}
+	switch strings.ToLower(action) {
+	case "delete", "organize", "write", "mkdir":
+		return 2
+	case "read", "list", "exists":
+		return 0
+	default:
+		return 2
+	}
 }
 
 func (h *ToolHandler) RunTool(w http.ResponseWriter, r *http.Request) {

@@ -45,7 +45,8 @@ func NewPermissionEngine() *PermissionEngine {
 // defaultPolicies 默认策略。
 // 安全硬化：
 // - shell:run 默认 L2（需确认），避免 L1 token 静默开 shell
-// - fs 只读 L0；写 L1；delete/organize L2
+// - fs 只读 L0；写/mkdir/delete/organize 均为 L2（与 FilesystemTool.ActionRequiredLevel 对齐）
+// - argv 白名单工具 L1（无 shell 解释）
 // - 未命中策略 fail-closed 为 L2
 func defaultPolicies() []Policy {
 	return []Policy{
@@ -53,14 +54,15 @@ func defaultPolicies() []Policy {
 		{Pattern: "shell:run", Level: Level2Dangerous},
 		{Pattern: "shell:install", Level: Level3Critical},
 		{Pattern: "shell:admin", Level: Level3Critical},
+		{Pattern: "exec:argv", Level: Level1Normal},
 		{Pattern: "fs:read", Level: Level0ReadOnly},
 		{Pattern: "fs:list", Level: Level0ReadOnly},
 		{Pattern: "fs:exists", Level: Level0ReadOnly},
-		{Pattern: "fs:write", Level: Level1Normal},
-		{Pattern: "fs:mkdir", Level: Level1Normal},
+		{Pattern: "fs:write", Level: Level2Dangerous},
+		{Pattern: "fs:mkdir", Level: Level2Dangerous},
 		{Pattern: "fs:organize", Level: Level2Dangerous},
 		{Pattern: "fs:delete", Level: Level2Dangerous}, // os.RemoveAll
-		{Pattern: "fs:*", Level: Level1Normal},
+		{Pattern: "fs:*", Level: Level2Dangerous},      // 未知 fs action fail-closed
 		{Pattern: "browser:*", Level: Level0ReadOnly},
 		{Pattern: "browser:download", Level: Level1Normal},
 		{Pattern: "system:*", Level: Level1Normal},

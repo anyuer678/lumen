@@ -9,6 +9,8 @@ import (
 	"runtime"
 	"strings"
 	"time"
+
+	"agent/internal/config"
 )
 
 // ShellTool 真实 Shell 工具
@@ -17,7 +19,8 @@ type ShellTool struct {
 	workspaceRoot string // 工作空间根路径（沙箱校验用）
 }
 
-// 命令黑名单：危险操作默认拒绝
+// commandBlacklist 命令黑名单：危险操作默认拒绝。
+// Sprint2 加严：补充 LOLBins / 编码执行 / 下载执行类载荷。
 var commandBlacklist = []struct{ pattern, reason string }{
 	{"format ", "禁止格式化磁盘"},
 	{"format c:", "禁止格式化系统盘"},
@@ -37,6 +40,21 @@ var commandBlacklist = []struct{ pattern, reason string }{
 	{"net user", "禁止修改用户账户"},
 	{"net localgroup", "禁止修改用户组"},
 	{"iisreset", "禁止重启IIS服务"},
+	// LOLBins / 下载执行 / 编码载荷
+	{"certutil", "禁止 certutil 下载/解码"},
+	{"bitsadmin", "禁止 bitsadmin 传输"},
+	{"mshta", "禁止 mshta 执行远程/内联脚本"},
+	{"rundll32", "禁止 rundll32 任意入口"},
+	{"regsvr32", "禁止 regsvr32 注册/执行"},
+	{"psexec", "禁止 psexec 远程执行"},
+	{"vssadmin", "禁止卷影副本操作"},
+	{"bcdedit", "禁止修改引导配置"},
+	{"invoke-expression", "禁止 PowerShell Invoke-Expression"},
+	{"iex(", "禁止 PowerShell IEX"},
+	{"downloadstring", "禁止 DownloadString 下载执行"},
+	{"frombase64", "禁止 FromBase64 解码执行"},
+	{"-encodedcommand", "禁止 PowerShell EncodedCommand"},
+	{"-enc ", "禁止 PowerShell -enc 编码命令"},
 }
 
 // sandboxBlockedPaths 沙箱模式下禁止操作的系统路径前缀
@@ -50,8 +68,10 @@ var sandboxBlockedPaths = []string{
 }
 
 func (t *ShellTool) Name() string        { return "shell.run" }
-func (t *ShellTool) Description() string { return "执行 shell 命令（支持超时）" }
-func (t *ShellTool) RequiredLevel() int  { return 2 }
+func (t *ShellTool) Description() string { return "执行 shell 命令（支持超时；默认档位每次需 L2+确认）" }
+
+// RequiredLevel 恒为 2：字符串 shell 从不以 L0/L1 静默执行。
+func (t *ShellTool) RequiredLevel() int { return 2 }
 
 // checkCommandBlocked 检查命令是否命中黑名单
 // allow_unsafe=false 时返回 blocked
@@ -148,12 +168,22 @@ func (t *ShellTool) Execute(ctx context.Context, args map[string]any) (*ToolResu
 	// 命令安全分类：破坏性命令需高权限确认；确认通过后由调用链携带
 	// WithDestructiveApproval 放行标记（无标记一律拒绝）
 	class := ClassifyCommand(command)
-	if class == CommandDestructive && !DestructiveApproved(ctx) {
+	if class == CommandDestructive && !DestructiveApproved(ctx) && !ShellApproved(ctx) {
 		return &ToolResult{
 			Raw:     fmt.Sprintf("命令被识别为破坏性操作，需在任务中单独确认（分类：%s）", CommandClassLabel(class)),
 			Kind:    "text",
 			Summary: "destructive: " + command,
 		}, fmt.Errorf("destructive command requires confirmation: %s", command)
+	}
+
+	// strict / argv-only 档：每一次字符串 shell 都必须携带人工确认标记（RunTool 负责发起确认）。
+	// full 档为显式 opt-in，仍要求破坏性命令确认；其余命令依赖 RunTool 的 L2 门。
+	if !config.StringShellAllowed() && !ShellApproved(ctx) && !DestructiveApproved(ctx) {
+		return &ToolResult{
+			Raw:     "shell_profile 非 full：shell.run 需经确认流批准（或改用 exec.argv）",
+			Kind:    "text",
+			Summary: "shell requires confirm under strict/argv-only profile",
+		}, fmt.Errorf("shell.run requires confirmation under shell_profile (opt-in full to relax)")
 	}
 
 	// 获取超时

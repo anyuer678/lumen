@@ -108,15 +108,30 @@ func ConvertToV2(result *ToolResult, toolName string, duration time.Duration) *T
 var ToolSchemas = map[string]ToolDef{
 	"shell.run": {
 		Name:        "shell.run",
-		Description: "执行 shell 命令",
+		Description: "执行 shell 命令（默认 shell_profile=strict：每次需 L2+确认）",
 		Parameters: map[string]ParameterDef{
 			"command": {Type: "string", Required: true, Description: "要执行的命令"},
 			"timeout": {Type: "number", Default: 30, Description: "超时秒数"},
 			"workdir": {Type: "string", Description: "工作目录"},
 		},
 		Required:   []string{"command"},
-		Permission: 1,
+		Permission: 2,
 		Timeout:    300,
+		SideEffect: true,
+		Risk:       "high",
+	},
+	"exec.argv": {
+		Name:        "exec.argv",
+		Description: "argv 白名单执行（不经 shell，推荐替代 shell.run）",
+		Parameters: map[string]ParameterDef{
+			"bin":     {Type: "string", Required: true, Description: "白名单二进制名"},
+			"args":    {Type: "array", Description: "参数数组"},
+			"timeout": {Type: "number", Default: 30, Description: "超时秒数"},
+			"workdir": {Type: "string", Description: "工作目录"},
+		},
+		Required:   []string{"bin"},
+		Permission: 1,
+		Timeout:    60,
 		SideEffect: true,
 		Risk:       "medium",
 	},
@@ -134,13 +149,13 @@ var ToolSchemas = map[string]ToolDef{
 	},
 	"fs.write": {
 		Name:        "fs.write",
-		Description: "写入文件",
+		Description: "写入文件（L2：需确认）",
 		Parameters: map[string]ParameterDef{
 			"path":    {Type: "string", Required: true, Description: "文件路径"},
 			"content": {Type: "string", Required: true, Description: "文件内容"},
 		},
 		Required:   []string{"path", "content"},
-		Permission: 1,
+		Permission: 2,
 		Timeout:    10,
 		SideEffect: true,
 		Risk:       "medium",

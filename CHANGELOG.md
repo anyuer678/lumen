@@ -1,8 +1,22 @@
-﻿# Changelog
+# Changelog
 
 All notable changes to this project will be documented in this file.
 
 ## Unreleased
+
+### Security（Sprint2 攻击面收敛）
+- **`permissions.shell_profile` 默认 `strict`**：默认策略永不提供无 opt-in 的自由字符串 shell
+  - `strict`（默认）：`shell.run` 每次强制 L2 + 人工确认 + audit_logs
+  - `argv-only`：禁用 `shell.run`，仅允许 `exec.argv`
+  - `full`：显式 opt-in 才放开字符串 shell（破坏性命令仍需确认）
+- 新增 **`exec.argv` 白名单工具**：不经 shell 解释，二进制 basename 白名单 + 参数元字符拒绝
+- **FilesystemTool 权限对齐**：`ActionRequiredLevel`（read/list/exists=L0；write/mkdir/delete/organize=L2）；策略表 `fs:write/mkdir` 升至 L2，`fs:*` fail-closed L2
+- **RunTool 全路径**：principal 存在时强制 `tools:run` scope + `EffectiveRequiredLevel ≤ PermLevel`；shell.run 审计必写
+- `?token=` 查询鉴权仅限 events/sse/stream（写/工具 API 一律 Header）
+- 空 scopes fail-closed（含 L3）；bootstrap 默认 `AdminTokenScopes`；CLI token scopes 与 `auth.HasScope` 冒号命名对齐
+- shell 黑名单加严：certutil/bitsadmin/mshta/rundll32/regsvr32/IEX/EncodedCommand 等
+- 事件策略（代码默认 + conf/policy.yaml）不再默认放行 `shell.run`
+- 文档：`docs/THREAT_MODEL.md` 残余风险 R1–R9 诚实更新
 
 ### Security（Sprint1 权限硬化）
 - **空 API token scopes 不再等于全部权限**（fail-closed）；迁移：为旧 token 写入显式 scopes，或临时 `LUMEN_ALLOW_LEGACY_EMPTY_SCOPES=1`

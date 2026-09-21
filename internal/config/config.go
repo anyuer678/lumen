@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 )
@@ -54,6 +55,11 @@ type Config struct {
 	Permissions struct {
 		PolicyFile     string `yaml:"policy_file"`
 		ConfirmTimeout string `yaml:"confirm_timeout"`
+		// ShellProfile 控制字符串 shell 的启用档位（默认 strict）。
+		//   strict    — shell.run 可用，但每次调用强制 L2+确认+审计，黑名单加严
+		//   argv-only — 默认推荐；禁用字符串 shell.run，仅允许 argv 白名单工具
+		//   full      — 显式 opt-in：保留字符串 shell（仍要求 L2+确认；破坏性命令仍拦截）
+		ShellProfile string `yaml:"shell_profile"`
 	} `yaml:"permissions"`
 
 	Observability struct {
@@ -128,6 +134,9 @@ func defaultConfig() *Config {
 	cfg.Scheduler.TickInterval = "60s"
 	cfg.Permissions.PolicyFile = "./conf/permission.yaml"
 	cfg.Permissions.ConfirmTimeout = "60s"
+	// 默认禁止「无确认的自由字符串 shell」：strict 档仍可用 shell.run，但每次强制确认。
+	// 需要完全禁用字符串 shell 时设为 argv-only；需要放开时显式设为 full。
+	cfg.Permissions.ShellProfile = "strict"
 	cfg.Observability.MetricsEnabled = true
 	cfg.Observability.AuditEnabled = true
 	cfg.Observability.LogLevel = "info"
@@ -179,8 +188,48 @@ func Get() *Config {
 	return globalConfig
 }
 
+// GetShellProfile 返回全局 shell 档位（未加载配置时为 strict）。
+func GetShellProfile() string {
+	return Get().ShellProfile()
+}
+
+// StringShellAllowed 全局便捷函数：是否允许自由字符串 shell。
+func StringShellAllowed() bool {
+	return Get().StringShellAllowed()
+}
+
 // ConfigPath 配置文件路径
 var ConfigPath = "./conf/config.yaml"
+
+// Shell profile 档位常量。
+const (
+	ShellProfileStrict   = "strict"    // 默认：字符串 shell 每次强制 L2+确认+审计
+	ShellProfileArgvOnly = "argv-only" // 禁用 shell.run，仅 argv 白名单
+	ShellProfileFull     = "full"      // 显式 opt-in 的自由字符串 shell
+)
+
+// ShellProfile 返回当前 shell 档位（缺省 strict；非法值回退 strict）。
+func (c *Config) ShellProfile() string {
+	if c == nil {
+		return ShellProfileStrict
+	}
+	switch strings.ToLower(strings.TrimSpace(c.Permissions.ShellProfile)) {
+	case ShellProfileArgvOnly, "argv_only", "argvonly":
+		return ShellProfileArgvOnly
+	case ShellProfileFull, "unsafe", "legacy":
+		return ShellProfileFull
+	case ShellProfileStrict, "":
+		return ShellProfileStrict
+	default:
+		return ShellProfileStrict
+	}
+}
+
+// StringShellAllowed 返回是否允许字符串 shell.run（仅 full 档为真）。
+// strict/argv-only 档：默认永不启用无 opt-in 的自由字符串 shell。
+func (c *Config) StringShellAllowed() bool {
+	return c.ShellProfile() == ShellProfileFull
+}
 
 // Save 将当前配置持久化到配置文件
 func Save() error {
