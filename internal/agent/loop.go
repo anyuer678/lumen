@@ -520,6 +520,15 @@ func EffectiveRequiredLevel(tool Tool, toolName string, args map[string]any) int
 func (l *Loop) RunTool(ctx context.Context, name string, args map[string]any) (*ToolResult, error) {
 	tool, ok := l.tools[name]
 	if !ok {
+		// Sprint3：默认未注册的高危面给出明确拒绝原因，而非含糊的 not found
+		if name == "computer" && !config.ComputerUseEnabled() {
+			l.auditLogRecord(name, "feature.disabled", "computer_use_enabled=false", "denied")
+			return nil, fmt.Errorf("computer tool disabled by default; set permissions.computer_use_enabled=true to opt in")
+		}
+		if (name == "mcp" || strings.HasPrefix(name, "mcp.")) && !config.MCPEnabled() {
+			l.auditLogRecord(name, "feature.disabled", "mcp.enabled=false", "denied")
+			return nil, fmt.Errorf("mcp disabled by default; set mcp.enabled=true to opt in")
+		}
 		return nil, fmt.Errorf("tool not found: %s", name)
 	}
 
@@ -1148,7 +1157,7 @@ func (l *Loop) registerBuiltinTools() {
 			workspaceRoot = cfg.Workspace.Root
 		}
 	}
-	// argv 白名单工具：默认推荐的命令执行面（无 shell 解释）
+	// argv 白名单工具：默认推荐的命令执行面（无 shell 解释；默认仅只读诊断命令）
 	l.RegisterTool(NewArgvTool(workspaceRoot, sandbox))
 	// 字符串 shell：始终注册以便确认流可调用；实际是否允许由 shell_profile 决定
 	// （argv-only 档 RunTool 直接拒绝；strict 档每次确认；full 需显式 opt-in）
@@ -1160,7 +1169,10 @@ func (l *Loop) registerBuiltinTools() {
 	l.RegisterTool(NewSystemTool())
 	l.RegisterTool(&delegateTool{l: l})                 // 子代理委派
 	l.RegisterTool(&safetyTool{})                       // 命令安全分类
-	l.RegisterTool(NewComputerTool("./data/workspace")) // Computer Use
+	// Sprint3：Computer Use 默认关闭，仅显式 permissions.computer_use_enabled=true 时注册
+	if config.ComputerUseEnabled() {
+		l.RegisterTool(NewComputerTool("./data/workspace"))
+	}
 	if runtime.GOOS == "windows" {
 		l.RegisterTool(NewWindowsTool())
 	}

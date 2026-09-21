@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"agent/internal/config"
 	"agent/internal/vision"
 )
 
@@ -40,6 +41,10 @@ func (t *ComputerTool) Description() string {
 func (t *ComputerTool) RequiredLevel() int { return 2 }
 
 func (t *ComputerTool) Execute(ctx context.Context, args map[string]any) (*ToolResult, error) {
+	// Sprint3：Computer Use 默认关闭。即使工具被误注册，未显式 opt-in 也拒绝执行。
+	if !config.ComputerUseEnabled() {
+		return nil, fmt.Errorf("computer tool disabled by default; set permissions.computer_use_enabled=true to opt in")
+	}
 	action, _ := args["action"].(string)
 	if action == "" {
 		return nil, fmt.Errorf("action is required (screenshot|mouse|keyboard|window_list|window_focus|window_resize)")

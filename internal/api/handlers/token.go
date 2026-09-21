@@ -19,11 +19,19 @@ import (
 // TokenHandler API Token 处理器
 type TokenHandler struct {
 	db *sql.DB
+	// bootstrapSecretPath 测试可覆盖；空则用 config/bootstrap 默认路径
+	bootstrapSecretPath string
 }
 
 // NewTokenHandler 创建处理器
 func NewTokenHandler(db *sql.DB) *TokenHandler {
 	return &TokenHandler{db: db}
+}
+
+// WithBootstrapSecretPath 设置 bootstrap secret 路径（测试/自定义部署）。
+func (h *TokenHandler) WithBootstrapSecretPath(path string) *TokenHandler {
+	h.bootstrapSecretPath = path
+	return h
 }
 
 // Routes 注册路由
@@ -130,7 +138,10 @@ func (h *TokenHandler) Create(w http.ResponseWriter, r *http.Request) {
 	caller := auth.PrincipalFromContext(r.Context())
 
 	// 首次运行引导：数据库为空时允许无认证创建第一个 token，
-	// 但强制要求 L3（最高权限）且使用默认全量 scopes，防止滥用。
+	// 但 Sprint3 起必须通过本地 bootstrap 门：
+	// - 服务绑定 loopback 且请求来源 loopback
+	// - 且具备 0600 bootstrap secret 文件，或本地交互确认
+	// 防止未认证网络侧签发 L3 admin token。
 	bootstrapMode := false
 	if caller == nil {
 		if h.hasTokens() {
@@ -138,7 +149,18 @@ func (h *TokenHandler) Create(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
 			return
 		}
-		// 首次运行：允许创建第一个 token，但强制 L3 + 全量 scopes
+		bindHost := "127.0.0.1"
+		if cfg := config.Get(); cfg != nil && cfg.Server.Host != "" {
+			bindHost = cfg.Server.Host
+		}
+		secretPath := config.BootstrapSecretFile()
+		if h.bootstrapSecretPath != "" {
+			secretPath = h.bootstrapSecretPath
+		}
+		if err := auth.ValidateBootstrap(r, bindHost, secretPath); err != nil {
+			http.Error(w, fmt.Sprintf(`{"error":"%s"}`, err.Error()), http.StatusForbidden)
+			return
+		}
 		bootstrapMode = true
 	}
 

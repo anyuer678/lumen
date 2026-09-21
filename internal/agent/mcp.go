@@ -12,6 +12,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"agent/internal/config"
 )
 
 // McpServer MCP 服务器配置
@@ -288,6 +290,10 @@ func (a *McpToolAdapter) Description() string  { return a.tool.Description }
 func (a *McpToolAdapter) RequiredLevel() int   { return 2 } // MCP 默认需要确认
 
 func (a *McpToolAdapter) Execute(ctx context.Context, args map[string]any) (*ToolResult, error) {
+	// Sprint3：MCP 默认关闭，未显式 opt-in 不得调用外部工具进程。
+	if !config.MCPEnabled() {
+		return nil, fmt.Errorf("mcp disabled by default; set mcp.enabled=true to opt in")
+	}
 	// 使用原始工具名（去掉服务器前缀）调用 MCP 服务器
 	originalName := a.tool.Name
 	if idx := strings.IndexByte(originalName, '.'); idx > 0 {
@@ -353,6 +359,10 @@ func (r *McpRegistry) AttachLoop(loop *Loop) {
 
 // Register 注册并启动 MCP 服务器
 func (r *McpRegistry) Register(ctx context.Context, server McpServer) error {
+	// Sprint3：MCP 默认关闭。配置中的 servers 与 HTTP 注册均需显式 mcp.enabled=true。
+	if !config.MCPEnabled() {
+		return fmt.Errorf("mcp.register disabled by default; set mcp.enabled=true to opt in")
+	}
 	client := NewMcpClient(server)
 	if err := client.Start(ctx); err != nil {
 		return fmt.Errorf("start MCP server %s: %w", server.Name, err)

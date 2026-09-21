@@ -73,6 +73,11 @@ permissions:
     #   argv-only 禁用 shell.run，仅允许 exec.argv 白名单工具（最安全）
     #   full      显式 opt-in：放开字符串 shell（仍要求 L2+确认；破坏性命令仍拦截）
     shell_profile: strict
+    # Computer Use 默认关闭（false）。设为 true 才注册/执行 computer 工具。
+    computer_use_enabled: false
+    # exec.argv 额外白名单：高副作用二进制（git/python/node 等）默认禁止。
+    # 仅在明确需要时追加 basename（不能是路径）。
+    # argv_extra_allow: ["git", "python"]
 observability:
     metrics_enabled: true
     audit_enabled: true
@@ -83,7 +88,15 @@ browser:
     headful: true
     user_data_dir: ./data/browser-profile
     proxy_socks5: ""
+bootstrap:
+    # 一次性 bootstrap secret 文件（要求 0600）。空则默认 ./data/bootstrap.secret
+    # 生成：agent bootstrap-secret
+    # 空库首次 HTTP 建 L3 token 时必须：loopback 绑定 + loopback 来源 + 此 secret
+    # （或本机 CLI：agent token admin --level 3）
+    secret_file: ""
 mcp:
+    # MCP 默认关闭（false）。设为 true 才允许 mcp.register / 下列 servers。
+    enabled: false
     servers:
         # pgi —— Personal GitHub Intelligence（理解仓库的 memory 工具）
         # 启用示例：取消注释，并把 db 路径改成你的实际路径

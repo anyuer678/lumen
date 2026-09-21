@@ -11,6 +11,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"agent/internal/agent"
 	"agent/internal/auth"
+	"agent/internal/config"
 )
 
 // McpHandler MCP 服务器管理处理器
@@ -43,7 +44,12 @@ func (h *McpHandler) List(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *McpHandler) Register(w http.ResponseWriter, r *http.Request) {
-	// 权限校验：注册 MCP 服务器需要 L1+（L0 只读不能注册进程）
+	// Sprint3：MCP 默认关闭——未显式 mcp.enabled=true 时 HTTP 注册一律拒绝
+	if !config.MCPEnabled() {
+		http.Error(w, `{"error":"mcp.register disabled by default; set mcp.enabled=true to opt in"}`, http.StatusForbidden)
+		return
+	}
+	// 权限校验：注册 MCP 服务器需要 L3 管理员 token
 	caller := auth.PrincipalFromContext(r.Context())
 	if caller == nil || caller.PermLevel < 3 {
 		http.Error(w, `{"error":"权限不足：注册 MCP 服务器需要 L3 管理员 token"}`, http.StatusForbidden)

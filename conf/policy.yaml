@@ -1,4 +1,15 @@
 # 事件 → 策略 → 决策 → 行动
+#
+# Security defaults (Sprint3):
+# computer-use and mcp.register are DISABLED by default (code + config).
+# Explicit opt-in lives in conf/config.yaml:
+#   permissions.computer_use_enabled: true
+#   mcp.enabled: true
+# Event policies below must not silently re-enable those surfaces.
+
+features:
+  computer_use: false
+  mcp_register: false
 
 policies:
   # 文件自动整理

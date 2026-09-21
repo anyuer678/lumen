@@ -38,6 +38,10 @@ type PolicyAction struct {
 }
 
 // DefaultPolicyConfig 默认策略配置
+// 安全硬化（与 conf/policy.yaml / policy.go 对齐）：
+// - auto_execute 默认 false
+// - 事件策略不得默认放行 shell.run / computer / mcp
+// - 需要确认的策略 require_confirm: true
 func DefaultPolicyConfig() *PolicyConfig {
 	return &PolicyConfig{
 		Policies: []PolicyRule{
@@ -50,9 +54,10 @@ func DefaultPolicyConfig() *PolicyConfig {
 				Keywords:   []string{".pdf", ".docx", ".xlsx", ".png", ".jpg", ".zip"},
 				MinPriority: 3,
 				Action: PolicyAction{
-					Notify:      true,
-					AutoExecute: true,
-					Tools:       []string{"fs"},
+					Notify:         true,
+					AutoExecute:    false,
+					RequireConfirm: true,
+					Tools:          []string{"fs"},
 				},
 			},
 			{
@@ -63,9 +68,10 @@ func DefaultPolicyConfig() *PolicyConfig {
 				MaxPerHour: 3,
 				MinPriority: 5,
 				Action: PolicyAction{
-					Notify:      false,
-					AutoExecute: true,
-					Tools:       []string{"shell.run"},
+					Notify:         true,
+					AutoExecute:    false,
+					RequireConfirm: true,
+					Tools:          []string{}, // 不默认 shell.run
 				},
 			},
 			{
@@ -77,6 +83,20 @@ func DefaultPolicyConfig() *PolicyConfig {
 				Action: PolicyAction{
 					Notify:      true,
 					AutoExecute: false,
+				},
+			},
+			{
+				Name:      "webhook_research",
+				EventType: "webhook.received",
+				Enabled:   true,
+				QuietHours: QuietHoursConfig{Start: 23, End: 8},
+				MaxPerHour: 2,
+				MinPriority: 7,
+				Action: PolicyAction{
+					Notify:         true,
+					AutoExecute:    false,
+					RequireConfirm: true,
+					Tools:          []string{"browser"},
 				},
 			},
 		},
