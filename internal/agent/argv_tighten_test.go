@@ -18,10 +18,16 @@ func TestArgvDefaultAllowlistExcludesPowerfulBins(t *testing.T) {
 			t.Errorf("default argv allowlist must NOT include %q", dangerous)
 		}
 	}
-	// 默认应保留只读/诊断类
-	for _, safe := range []string{"echo", "ls", "dir", "cat", "type", "ping", "ipconfig", "whoami", "pwd", "hostname", "date", "true", "false"} {
+	// 默认应保留只读/诊断类（Sprint4：去掉 cat/type/systeminfo/tasklist/netstat）
+	for _, safe := range []string{"echo", "ls", "dir", "ping", "ipconfig", "whoami", "pwd", "hostname", "date", "true", "false"} {
 		if !allow[safe] {
 			t.Errorf("default argv allowlist should include safe bin %q", safe)
+		}
+	}
+	// Sprint4：文件读取 / 主机侦察类不得在默认白名单
+	for _, recon := range []string{"cat", "type", "systeminfo", "tasklist", "netstat"} {
+		if allow[recon] {
+			t.Errorf("default argv allowlist must NOT include %q (file-read / host recon)", recon)
 		}
 	}
 }
@@ -67,6 +73,9 @@ func TestArgvRejectsPathsAndEnvStyleArgs(t *testing.T) {
 		{"env dollar", []any{"$PATH"}},
 		{"env percent", []any{"%PATH%"}},
 		{"env home", []any{"$HOME"}},
+		{"space", []any{"hello world"}},
+		{"tab", []any{"a\tb"}},
+		{"nul", []any{"a\x00b"}},
 	}
 	for _, c := range cases {
 		_, err := tool.Execute(ctx, map[string]any{"bin": "echo", "args": c.args})

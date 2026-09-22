@@ -77,6 +77,9 @@ permissions:
     computer_use_enabled: false
     # exec.argv 额外白名单：高副作用二进制（git/python/node 等）默认禁止。
     # 仅在明确需要时追加 basename（不能是路径）。
+    # 默认白名单仅：ls/dir/echo/ping/ipconfig/ifconfig/hostname/date/whoami/pwd/true/false/where/nslookup
+    # （不含 cat/type 文件读取，不含 systeminfo/tasklist/netstat 主机侦察）
+    # 评审后再开启；每次 argv 调用会写审计。
     # argv_extra_allow: ["git", "python"]
 observability:
     metrics_enabled: true
