@@ -1,7 +1,7 @@
 # 威胁模型 — lumen
 
 > 状态：portfolio / 本地 Agent Runtime · **非生产** · 默认仅 `127.0.0.1`  
-> 对应安全 Sprint3：argv 收紧 + computer/mcp 默认关闭 + bootstrap 本地门
+> 对应安全 Sprint3+Sprint4：argv 收紧 + 参数禁空白 + computer/mcp 默认关闭 + bootstrap 本地门
 
 ## 1. 系统概述
 
@@ -55,7 +55,7 @@
 | A8 | 空库 bootstrap | 无认证建 L3 | **Sprint3：拒绝**——须 loopback 绑定 + loopback 来源 + (0600 secret \| 本地交互确认)；CLI 优先 |
 | A9 | 无 scope 的内部旁路 | Chat 路径调 RunTool | Chat 传递 principal；RunTool 有 principal 时强制 tools:run |
 | A10 | 任意字符串 shell | 默认 profile | 默认 `strict`；`full` 需显式配置；`argv-only` 完全禁用 |
-| A11 | exec.argv 滥用解释器 | python/node/git 写文件/装包 | **默认白名单仅只读诊断**；解释器需 `argv_extra_allow`；参数禁路径/环境变量 |
+| A11 | exec.argv 滥用解释器 | python/node/git 写文件/装包 | **默认白名单仅只读诊断**（Sprint4 去掉 cat/type/systeminfo/tasklist/netstat）；解释器需 `argv_extra_allow`；参数禁元字符/绝对路径/路径分隔符/`$VAR`/`%VAR%`/**空白** |
 | A12 | Computer Use 未授权键鼠/截图 | 默认注册后被调用 | **默认不注册/不执行**；`computer_use_enabled=true` 才 opt-in |
 
 ## 5. 控制措施
@@ -64,7 +64,7 @@
 - HTTP：`RequireScope` 于 tools/mcp/token/settings/events/kb；confirm:approve
 - RunTool（所有路径）：principal 存在时 **scope + EffectiveRequiredLevel**；PermissionEngine；确认流 fail-closed
 - shell.run：`shell_profile` 默认 strict → **每一次** L2+确认+审计；argv-only 直接拒绝；黑名单含 LOLBins
-- exec.argv：默认仅只读/诊断 basename；高副作用二进制需 `permissions.argv_extra_allow`；参数拒绝元字符/绝对路径/路径分隔符/`$VAR`/`%VAR%`
+- exec.argv：默认仅只读/诊断 basename（ls/dir/echo/ping/ipconfig/ifconfig/hostname/date/whoami/pwd/true/false/where/nslookup）；高副作用二进制需 `permissions.argv_extra_allow`（默认空；**配置评审后才追加**）；参数拒绝元字符/绝对路径/路径分隔符/`$VAR`/`%VAR%`/空白字符；fuzz+表驱动回归见 `argv_fuzz_test.go`
 - fs：read/list/exists=L0；write/mkdir/delete/organize=L2（工具 ActionRequiredLevel 与策略表一致）
 - computer / mcp：代码与 conf 默认 **disabled**；未 opt-in 时 RunTool/Execute/HTTP Register/McpRegistry.Register 均拒绝
 - bootstrap：空库 HTTP 建 L3 须 loopback+secret（0600）或本地交互确认；禁止网络侧未认证 bootstrap
@@ -93,7 +93,7 @@
 | `permissions.shell_profile` | `strict`（非 full，字符串 shell 每次确认） |
 | `permissions.computer_use_enabled` | `false`（computer 不注册/不执行） |
 | `mcp.enabled` | `false`（mcp.register / 配置 servers 均拒绝） |
-| `permissions.argv_extra_allow` | 空（默认 argv 仅 ls/echo/cat/ping 等只读诊断） |
+| `permissions.argv_extra_allow` | 空（默认 argv 仅 ls/dir/echo/ping/ipconfig/hostname/date/whoami/pwd/true/false/where/nslookup） |
 | 空 scopes token | 拒绝（迁移可临时 `LUMEN_ALLOW_LEGACY_EMPTY_SCOPES=1`） |
 | shell:run | L2 + strict 每次确认 + 审计 |
 | fs write/mkdir/delete/organize | L2 + 确认策略 |
@@ -120,3 +120,10 @@
 | 2026-09-20 | Sprint1 初稿：空 scopes fail-closed、query token 收紧、shell L2 |
 | 2026-09-21 | Sprint2：shell_profile 档位、exec.argv 白名单、fs 写删 L2 对齐、RunTool scope+审计、黑名单 LOLBins、事件策略去 shell、bootstrap AdminTokenScopes |
 | 2026-09-22 | Sprint3：argv 默认收紧（去 python/node/git；参数禁路径/env）；computer/mcp 默认关闭；bootstrap 本地门（loopback+0600 secret/交互）；R3/R4/R9/R10 更新 |
+| 2026-09-22 | Sprint4：argv 再收紧（去 cat/type/systeminfo/tasklist/netstat）；参数禁空白/NUL；shell_profile 回归锁（policy.yaml/defaults 不得开 shell）；Go fuzz + 表驱动 argv 校验 |
+
+## 10. Residual notes (Sprint4)
+
+- Windows 上 `dir`/`ls→dir` 仍经 `cmd.exe /c` 内建执行（无 shell 元字符语义，因参数先过 `checkArgvSafe`）；`type`/`cat` 已移出默认白名单以去掉 basename 文件读取。
+- `argv_extra_allow` 仍是一把显式钥匙：配置过宽（git/python）时等同打开解释器面（R9）。默认空 + 文档警告 + 审计。
+- Free string shell 仍仅 `shell_profile=full`；policy.yaml / DefaultPolicyConfig / config 默认值回归测试锁定该门（`shell_profile_regression_test.go`）。

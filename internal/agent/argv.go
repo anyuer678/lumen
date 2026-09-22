@@ -28,10 +28,12 @@ type ArgvTool struct {
 
 // defaultArgvAllowlist 允许的二进制 basename（小写）。
 // 仅收录低副作用/只读诊断类；安装、删除、解释器、包管理器一律不在此列。
+// Sprint4 收紧：去掉 cat/type（按 basename 读文件内容）、systeminfo/tasklist/netstat
+// （主机侦察面）；保留 ls/dir/echo/网络连通性诊断。文件读取请用 fs 工具（L0/L2 门）。
 var defaultArgvAllowlist = []string{
-	"ls", "dir", "echo", "cat", "type",
+	"ls", "dir", "echo",
 	"ping", "ipconfig", "ifconfig", "hostname", "date", "whoami", "pwd",
-	"true", "false", "where", "nslookup", "netstat", "systeminfo", "tasklist",
+	"true", "false", "where", "nslookup",
 }
 
 // ArgvExtraAllowCandidates 文档/测试用：这些二进制可造成任意代码执行或系统变更，
@@ -88,12 +90,18 @@ func (t *ArgvTool) ArgvAllowlist() []string {
 }
 
 // argvShellMetachars 参数中禁止出现的 shell 元字符（即使 shell=False，也拒绝以消除语义混淆）。
-var argvShellMetachars = []string{";", "&&", "||", "|", ">", "<", "`", "$(", "\n", "\r"}
+// 含全角变体（；｜＞＜＆），防止 Unicode 同形绕过。
+var argvShellMetachars = []string{
+	";", "&", "&&", "||", "|", ">", "<", "`", "$(", "\n", "\r", "\x00",
+	"；", "｜", "＞", "＜", "＆", "＊",
+}
 
 // checkArgvSafe 校验参数：
-// - 禁止 shell 元字符
+// - 禁止 shell 元字符（含全角）
 // - 禁止绝对路径与路径分隔符（阻止读写任意路径 / LOLBin 路径注入）
 // - 禁止环境变量风格（$VAR / %VAR%），阻止间接展开
+// - 禁止空白/空格（拒绝 "a b" 这类带空格 token，消除 argv 分词混淆）
+// - 禁止冒号（Windows 盘符 / UNC 变体）
 func checkArgvSafe(args []string) error {
 	for _, a := range args {
 		for _, m := range argvShellMetachars {
@@ -101,11 +109,16 @@ func checkArgvSafe(args []string) error {
 				return fmt.Errorf("argv 参数包含禁止的元字符 %q: %q", m, a)
 			}
 		}
+		// 空白字符（空格/tab）一律拒绝
+		if strings.ContainsAny(a, " \t") {
+			return fmt.Errorf("argv 参数禁止空白字符: %q", a)
+		}
+		// 冒号：盘符 C: / 路径样式，一律拒绝
+		if strings.Contains(a, ":") {
+			return fmt.Errorf("argv 参数禁止盘符/冒号: %q", a)
+		}
 		// 绝对路径：Unix /、Windows 盘符 C:\ 或 UNC \\
 		if strings.HasPrefix(a, "/") || strings.HasPrefix(a, `\`) {
-			return fmt.Errorf("argv 参数禁止绝对路径: %q", a)
-		}
-		if len(a) >= 2 && a[1] == ':' && ((a[0] >= 'A' && a[0] <= 'Z') || (a[0] >= 'a' && a[0] <= 'z')) {
 			return fmt.Errorf("argv 参数禁止绝对路径: %q", a)
 		}
 		// 路径分隔符
