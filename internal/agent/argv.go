@@ -94,6 +94,7 @@ func (t *ArgvTool) ArgvAllowlist() []string {
 var argvShellMetachars = []string{
 	";", "&", "&&", "||", "|", ">", "<", "`", "$(", "\n", "\r", "\x00",
 	"；", "｜", "＞", "＜", "＆", "＊",
+	`"`, "'",
 }
 
 // checkArgvSafe 校验参数：

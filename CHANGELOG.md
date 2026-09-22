@@ -63,3 +63,8 @@ All notable changes to this project will be documented in this file.
 - e845521 fix: Tools.tsx 移除硬编码路径改用 HOME
 - a87b965 fix(security): 示例配置 host 改 127.0.0.1、占位 key 改 env 引用、修复 ss 笔误
 - 94c272a fix(security): 移除 /events 认证豁免
+
+## Sprint12 (argv adversarial)
+
+- checkArgvSafe now rejects quote characters (\" / ') to block breakout tokens even without a shell.
+- Extra tests: unicode/metachar/UNC/env injection, path-form extra_allow rejection, dangerous binaries stay default-off, shell/computer/MCP default-off lock.
