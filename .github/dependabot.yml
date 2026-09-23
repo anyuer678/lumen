@@ -18,6 +18,17 @@ updates:
       - dependency-name: "esbuild"
         update-types:
           - "version-update:semver-major"
+      # @vitejs/plugin-react 6.x 会 import vite 的 "./internal" 子路径，
+      # 该导出只在 vite 7+ 存在；本项目把 vite 锁在 6.3.5（见 package.json overrides），
+      # 因此 plugin-react 的 major 升级必然让 vite build 失败（ERR_PACKAGE_PATH_NOT_EXPORTED）。
+      - dependency-name: "@vitejs/plugin-react"
+        update-types:
+          - "version-update:semver-major"
+      # TypeScript 7 对 CSS 副作用导入报 TS2882（src/main.tsx 的 ./styles/*.css），
+      # 需要额外的类型声明改造；在此之前忽略 major，minor/patch 照常。
+      - dependency-name: "typescript"
+        update-types:
+          - "version-update:semver-major"
 
   - package-ecosystem: github-actions
     directory: "/"
