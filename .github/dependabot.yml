@@ -1,0 +1,25 @@
+version: 2
+updates:
+  - package-ecosystem: gomod
+    directory: "/"
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: npm
+    directory: "/web"
+    schedule:
+      interval: weekly
+    ignore:
+      # @vitejs/plugin-react@4.x 的 peer 只接受 vite ^4||^5||^6||^7，
+      # 跳到 vite 8 会让 npm ci 直接 ERESOLVE 失败。等 plugin-react 一起升再解除。
+      - dependency-name: "vite"
+        update-types:
+          - "version-update:semver-major"
+      - dependency-name: "esbuild"
+        update-types:
+          - "version-update:semver-major"
+
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
