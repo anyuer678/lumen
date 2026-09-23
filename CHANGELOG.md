@@ -4,6 +4,24 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+### Fixed（SSE 实时推送被路由冲突静默顶掉）
+- **`GET /v1/events` 不再返回 `text/event-stream`** —— 被事件总线子路由覆盖
+  - 现象：前端 `useSSE()` 的 `EventSource('/v1/events')` 收到 `application/json`，
+    浏览器报 *EventSource's response has a MIME type ("application/json") that is
+    not "text/event-stream". Aborting the connection.* → 侧栏**恒显「连接断开」**、
+    全站无实时推送；且该 group 带 `RequireScope("events:emit")`，非 admin token
+    （`DefaultTokenScopes` 不含 `events:emit`）读事件列表直接 **403**
+  - 根因：`chi.Mux.Mount()` 会注册 pattern 本身及其 `"/*"`，并**静默覆盖**此前注册
+    在同一 pattern 上的路由。原实现把 event-bus 子路由 `Mount("/events", ...)`，
+    与上方的 `r.Get("/events", SSEHandler(...))` 撞 pattern，SSE 端点被顶掉
+  - 修法：事件总线 REST 改挂 **`/eventbus`**（`GET /eventbus`、
+    `POST /eventbus/emit`、`DELETE /eventbus?keep_days=N`），`/v1/events` 交还 SSE
+  - 前端：`Today` / `Overview` / `Events` 三个页面改调 `/eventbus*`
+  - 附带收益：`/v1/eventbus` 不再命中 `?token=` 查询参数豁免
+    （该豁免按 `strings.Contains(p, "/events")` 判定，仅应覆盖事件流），
+    事件总线读写统一走 Header 鉴权
+  - 回归锁：`internal/api/router_events_test.go` 断言 `/v1/events` 下不得挂任何子路由
+
 ### Security（Sprint3 攻击面再收敛）
 - **exec.argv 默认白名单收紧**：移除 `python/node/git/go/npm` 等高副作用二进制
   - 默认仅保留只读/诊断命令：`ls/dir/echo/cat/type/ping/ipconfig/ifconfig/hostname/date/whoami/pwd/true/false/where/...`
