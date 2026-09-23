@@ -23,7 +23,7 @@ export default function Overview() {
       api.getStatus(),
       api.listTasks({ limit: 6 }),
       fetchJson('/token-usage').catch(() => ({ calls: 0, total_tokens: 0, cost_usd: 0 })),
-      fetchJson('/events?limit=5').catch(() => []),
+      fetchJson('/eventbus?limit=5').catch(() => []),
       fetchJson('/digest/today').catch(() => ({ digest: '' })),
     ])
       .then(([s, t, tk, ev, dg]) => {

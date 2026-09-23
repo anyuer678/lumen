@@ -13,7 +13,7 @@ export default function Events() {
   const { showToast } = useToast()
 
   const refresh = useCallback(() => {
-    fetchJson('/events?limit=50')
+    fetchJson('/eventbus?limit=50')
       .then(d => setEvents(Array.isArray(d) ? d : []))
       .catch(() => setEvents([]))
       .finally(() => setLoading(false))
@@ -24,7 +24,7 @@ export default function Events() {
   const handleEmit = async () => {
     if (!emitType.trim()) { showToast('请输入事件类型', 'warning'); return }
     try {
-      await fetchJson('/events/emit', {
+      await fetchJson('/eventbus/emit', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ source: 'manual', type: emitType, payload: emitPayload || '', priority: 5 }),
       })
@@ -37,7 +37,7 @@ export default function Events() {
   const handleClear = async () => {
     if (!confirm('清理30天前的事件？')) return
     try {
-      const r = await fetchJson('/events?keep_days=30', { method: 'DELETE' })
+      const r = await fetchJson('/eventbus?keep_days=30', { method: 'DELETE' })
       showToast(`已清理 ${r?.deleted ?? 0} 条旧事件`, 'success')
       refresh()
     } catch (e) { showToast((e as Error).message, 'error') }

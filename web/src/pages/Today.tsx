@@ -23,7 +23,7 @@ export default function Today() {
     Promise.all([
       api.listTasks({ limit: 50 }),
       api.getMemories(),
-      fetchJson('/events?limit=50').catch(() => []),
+      fetchJson('/eventbus?limit=50').catch(() => []),
       fetchJson('/digest/today').catch(() => ({ digest: '' })),
     ])
       .then(([tasksRes, memories, events, digestRes]) => {
