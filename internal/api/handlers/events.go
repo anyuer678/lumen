@@ -21,12 +21,21 @@ func NewEventHandler(db *sql.DB) *EventHandler {
 	return &EventHandler{eventBus: agent.NewEventBus(db)}
 }
 
-// Routes 注册路由
+// Routes 注册路由。
+// scope 门禁：读端点（GET /）由 router.go 的 RequireAnyScope(events:read, events:emit)
+// 把守且此处再校验一次；写端点（POST /emit、DELETE /）在此收紧为 events:emit，
+// 保证只读 token 无法发射/清理事件。
 func (h *EventHandler) Routes() chi.Router {
 	r := chi.NewRouter()
-	r.Get("/", h.ListEvents)
-	r.Post("/emit", h.EmitEvent)
-	r.Delete("/", h.ClearOld)
+	r.Group(func(r chi.Router) {
+		r.Use(auth.RequireAnyScope(auth.ScopeEventsRead, auth.ScopeEventsEmit))
+		r.Get("/", h.ListEvents)
+	})
+	r.Group(func(r chi.Router) {
+		r.Use(auth.RequireScope(auth.ScopeEventsEmit))
+		r.Post("/emit", h.EmitEvent)
+		r.Delete("/", h.ClearOld)
+	})
 	return r
 }
 

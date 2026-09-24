@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+### Added（events:read 只读 scope）
+- **新增 `events:read` scope**：事件总线读端点 `GET /v1/eventbus` 接受 `events:read`
+  （最小权限，适合只读监控/看板 token）或 `events:emit`（向后兼容，原有 token 不受影响）
+- 写端点收紧：`POST /v1/eventbus/emit` 与 `DELETE /v1/eventbus` 仍要求 `events:emit`，
+  只读 token 即使 L3 也无法发射/清理事件（内层 `RequireScope(events:emit)` 兜底）
+- `auth` 包新增 `RequireAnyScope(scopes ...string)` 中间件（任一命中放行，未认证 401、
+  全不匹配 403，空 scopes 沿用 fail-closed）
+- `AdminTokenScopes` 与 README scope 清单加入 `events:read`；`DefaultTokenScopes` 不变
+- 测试：`RequireAnyScope` 单测 + eventbus 授权矩阵（读 token 可列表 / 不可发射与清理 /
+  emit token 向后兼容 / 未认证 401 / 无匹配 403）
+
 ### Fixed（SSE 实时推送被路由冲突静默顶掉）
 - **`GET /v1/events` 不再返回 `text/event-stream`** —— 被事件总线子路由覆盖
   - 现象：前端 `useSSE()` 的 `EventSource('/v1/events')` 收到 `application/json`，

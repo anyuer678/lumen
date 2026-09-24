@@ -64,6 +64,7 @@ const (
 	ScopeMCPRegister   = "mcp:register"
 	ScopeTokenManage   = "token:manage"
 	ScopeEventsEmit    = "events:emit"
+	ScopeEventsRead    = "events:read"
 	ScopeKBWrite       = "kb:write"
 	ScopeSettingsWrite = "settings:write"
 )
@@ -74,7 +75,7 @@ const DefaultTokenScopes = ScopeToolsRun + "," + ScopeTasksCreate
 // AdminTokenScopes bootstrap / L3 管理员 token 的全量 scopes。
 const AdminTokenScopes = ScopeToolsRun + "," + ScopeTasksCreate + "," + ScopeTasksControl +
 	"," + ScopeConfirmApprove + "," + ScopeMCPRegister + "," + ScopeTokenManage +
-	"," + ScopeEventsEmit + "," + ScopeKBWrite + "," + ScopeSettingsWrite
+	"," + ScopeEventsEmit + "," + ScopeEventsRead + "," + ScopeKBWrite + "," + ScopeSettingsWrite
 
 // allowLegacyEmptyScopes 仅用于从旧版本迁移：
 // 历史行为「空 scopes = 全部权限」fail-open，升级后默认拒绝。
@@ -117,6 +118,28 @@ func RequireScope(scope string) func(http.Handler) http.Handler {
 				return
 			}
 			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+// RequireAnyScope 返回一个 HTTP 中间件：调用者拥有任一列出 scope 即放行。
+// 用于读端点的兼容门禁（如 events:read 与 events:emit 都可读事件列表），
+// 写端点仍应使用 RequireScope 单一 scope 收紧。
+func RequireAnyScope(scopes ...string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			p := PrincipalFromContext(r.Context())
+			if p == nil {
+				http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
+				return
+			}
+			for _, s := range scopes {
+				if p.HasScope(s) {
+					next.ServeHTTP(w, r)
+					return
+				}
+			}
+			http.Error(w, fmt.Sprintf(`{"error":"one of scopes %v required but not granted"}`, scopes), http.StatusForbidden)
 		})
 	}
 }
