@@ -93,10 +93,61 @@ func TestDefaultAndAdminScopeConstants(t *testing.T) {
 	admin := &TokenPrincipal{Scopes: AdminTokenScopes, PermLevel: 3}
 	for _, s := range []string{
 		ScopeToolsRun, ScopeTasksCreate, ScopeTasksControl, ScopeConfirmApprove,
-		ScopeMCPRegister, ScopeTokenManage, ScopeEventsEmit, ScopeKBWrite, ScopeSettingsWrite,
+		ScopeMCPRegister, ScopeTokenManage, ScopeEventsEmit, ScopeEventsRead, ScopeKBWrite, ScopeSettingsWrite,
 	} {
 		if !admin.HasScope(s) {
 			t.Fatalf("AdminTokenScopes missing %s", s)
 		}
+	}
+}
+
+func TestRequireAnyScopeGrantsOnFirstMatch(t *testing.T) {
+	os.Unsetenv("LUMEN_ALLOW_LEGACY_EMPTY_SCOPES")
+	h := RequireAnyScope(ScopeEventsRead, ScopeEventsEmit)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	for _, scopes := range []string{ScopeEventsRead, ScopeEventsEmit, "tools:run," + ScopeEventsRead} {
+		req := httptest.NewRequest(http.MethodGet, "/eventbus", nil)
+		req = req.WithContext(WithPrincipal(req.Context(), &TokenPrincipal{
+			Name: "t1", PermLevel: 1, Scopes: scopes,
+		}))
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, req)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("scopes=%q should pass RequireAnyScope, got %d", scopes, rec.Code)
+		}
+	}
+}
+
+func TestRequireAnyScopeDeniesWhenNoneMatch(t *testing.T) {
+	os.Unsetenv("LUMEN_ALLOW_LEGACY_EMPTY_SCOPES")
+	h := RequireAnyScope(ScopeEventsRead, ScopeEventsEmit)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	// 无匹配 scope → 403
+	req := httptest.NewRequest(http.MethodGet, "/eventbus", nil)
+	req = req.WithContext(WithPrincipal(req.Context(), &TokenPrincipal{
+		Name: "t1", PermLevel: 3, Scopes: ScopeToolsRun,
+	}))
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("want 403 when no listed scope granted, got %d", rec.Code)
+	}
+	// 未认证 → 401
+	rec2 := httptest.NewRecorder()
+	h.ServeHTTP(rec2, httptest.NewRequest(http.MethodGet, "/eventbus", nil))
+	if rec2.Code != http.StatusUnauthorized {
+		t.Fatalf("nil principal must 401, got %d", rec2.Code)
+	}
+	// 空 scopes 即使 L3 也 fail-closed
+	req3 := httptest.NewRequest(http.MethodGet, "/eventbus", nil)
+	req3 = req3.WithContext(WithPrincipal(req3.Context(), &TokenPrincipal{
+		Name: "t2", PermLevel: 3, Scopes: "",
+	}))
+	rec3 := httptest.NewRecorder()
+	h.ServeHTTP(rec3, req3)
+	if rec3.Code != http.StatusForbidden {
+		t.Fatalf("empty scopes must fail closed, got %d", rec3.Code)
 	}
 }
