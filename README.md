@@ -110,9 +110,9 @@ curl http://127.0.0.1:14000/v1/tools/ -H "Authorization: Bearer $TOKEN"
 | L2 | 危险操作 | 计算机控制、MCP 工具（需人工确认） |
 | L3 | 管理员 | Token 管理、MCP 注册、全部操作 |
 
-新创建的 token 默认带有以下 scopes：`tasks:create,tasks:control,confirm:approve,tools:run,mcp:register,token:manage,events:emit,kb:write,settings:write`
+新创建的 token 默认带有以下 scopes：`tasks:create,tasks:control,confirm:approve,tools:run,mcp:register,token:manage,events:emit,events:read,kb:write,settings:write`
 
-访问受 scope 保护的端点时，token 必须包含对应 scope，否则返回 403。
+访问受 scope 保护的端点时，token 必须包含对应 scope，否则返回 403。事件总线读端点（`GET /v1/eventbus`）接受 `events:read`（最小权限，推荐给只读监控方）或 `events:emit`（向后兼容）；发射/清理事件（`POST /v1/eventbus/emit`、`DELETE /v1/eventbus`）仍要求 `events:emit`。
 
 ## Tech Stack
 

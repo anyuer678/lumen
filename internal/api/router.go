@@ -158,7 +158,7 @@ func NewRouter(tm *task.Manager, sched *scheduler.Scheduler, db *sql.DB, mcpRegi
 			r.Mount("/token-usage", tokenUsageHandler.Routes())
 		}
 
-		// 事件总线 REST 端点（需要 events:emit scope）
+		// 事件总线 REST 端点（读：events:read / events:emit；写：events:emit）
 		// ⚠️ 路径必须是 /eventbus，不能是 /events：
 		// chi 的 Mount() 会注册 pattern 及其 "/*"，并**静默覆盖**此前注册在同 pattern
 		// 上的路由；挂在 /events 会把上面第 58 行的 SSE 端点顶掉，导致前端
@@ -166,7 +166,9 @@ func NewRouter(tm *task.Manager, sched *scheduler.Scheduler, db *sql.DB, mcpRegi
 		// 回归锁见 internal/api/router_events_test.go。
 		if db != nil {
 			r.Group(func(r chi.Router) {
-				r.Use(auth.RequireScope("events:emit"))
+				// 读端点接受 events:read（最小权限）或 events:emit（向后兼容）；
+				// 写端点的 events:emit 收紧在 handlers/events.go 的路由组内。
+				r.Use(auth.RequireAnyScope(auth.ScopeEventsRead, auth.ScopeEventsEmit))
 				eventHandler := handlers.NewEventHandler(db)
 				r.Mount("/eventbus", eventHandler.Routes())
 			})
