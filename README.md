@@ -4,6 +4,8 @@
 <p align="center">
   <strong>Lumen - 流明</strong>
 </p>
+
+[![Tests](https://github.com/anyuer678/lumen/actions/workflows/test.yml/badge.svg)](https://github.com/anyuer678/lumen/actions/workflows/test.yml)
 <p align="center">
   <em>Your personal intelligence layer - 你的个人智能中枢</em>
 </p>
