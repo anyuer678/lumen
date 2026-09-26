@@ -17,42 +17,42 @@ import (
 
 // BenchTaskV2 一条测试用例（v2 扩展）
 type BenchTaskV2 struct {
-	ID          string   `json:"id"`
-	Category    string   `json:"category"`     // basic/filesystem/browser/system/security/memory/subagent/vision/context
-	Difficulty  string   `json:"difficulty"`    // easy/medium/hard
-	Name        string   `json:"name"`
-	Goal        string   `json:"goal"`
-	Expected    string   `json:"expected"`      // 期望关键词（output 中应包含）
-	ToolHint    string   `json:"tool_hint"`     // 期望使用的工具（用于 Tool Selection 准确率）
-	MaxSteps    int      `json:"max_steps"`
-	ShouldFail  bool     `json:"should_fail"`   // 期望失败（安全测试）
-	Tags        []string `json:"tags,omitempty"` // 额外标签
+	ID         string   `json:"id"`
+	Category   string   `json:"category"`   // basic/filesystem/browser/system/security/memory/subagent/vision/context
+	Difficulty string   `json:"difficulty"` // easy/medium/hard
+	Name       string   `json:"name"`
+	Goal       string   `json:"goal"`
+	Expected   string   `json:"expected"`  // 期望关键词（output 中应包含）
+	ToolHint   string   `json:"tool_hint"` // 期望使用的工具（用于 Tool Selection 准确率）
+	MaxSteps   int      `json:"max_steps"`
+	ShouldFail bool     `json:"should_fail"`    // 期望失败（安全测试）
+	Tags       []string `json:"tags,omitempty"` // 额外标签
 }
 
 // BenchResultV2 一条结果（v2 扩展）
 type BenchResultV2 struct {
-	TaskID       string  `json:"task_id"`
-	Category     string  `json:"category"`
-	Difficulty   string  `json:"difficulty"`
-	Name         string  `json:"name"`
-	Mode         string  `json:"mode"`        // simple/llm
-	Model        string  `json:"model"`
-	Status       string  `json:"status"`       // pass/fail/timeout/error
-	Steps        int     `json:"steps"`
-	Duration     float64 `json:"duration_sec"`
-	Error        string  `json:"error,omitempty"`
-	Evidence     string  `json:"evidence,omitempty"`
+	TaskID     string  `json:"task_id"`
+	Category   string  `json:"category"`
+	Difficulty string  `json:"difficulty"`
+	Name       string  `json:"name"`
+	Mode       string  `json:"mode"` // simple/llm
+	Model      string  `json:"model"`
+	Status     string  `json:"status"` // pass/fail/timeout/error
+	Steps      int     `json:"steps"`
+	Duration   float64 `json:"duration_sec"`
+	Error      string  `json:"error,omitempty"`
+	Evidence   string  `json:"evidence,omitempty"`
 
 	// v2 新增维度
-	ToolSelected   string  `json:"tool_selected"`    // 实际选择的工具
-	ToolCorrect    bool    `json:"tool_correct"`     // 工具选择是否正确
-	ArgCorrect     bool    `json:"arg_correct"`      // 参数填充是否正确
-	Recovered      bool    `json:"recovered"`        // 是否从错误中恢复
-	TokensUsed     int     `json:"tokens_used"`      // token 消耗
-	CostUSD        float64 `json:"cost_usd"`         // 成本
-	PlanOutput     string  `json:"plan_output,omitempty"`   // Planner 原始输出
-	RepairUsed     bool    `json:"repair_used"`      // Tool Repair 是否介入
-	ContextTokens  int     `json:"context_tokens"`   // 上下文 token 用量
+	ToolSelected  string  `json:"tool_selected"`         // 实际选择的工具
+	ToolCorrect   bool    `json:"tool_correct"`          // 工具选择是否正确
+	ArgCorrect    bool    `json:"arg_correct"`           // 参数填充是否正确
+	Recovered     bool    `json:"recovered"`             // 是否从错误中恢复
+	TokensUsed    int     `json:"tokens_used"`           // token 消耗
+	CostUSD       float64 `json:"cost_usd"`              // 成本
+	PlanOutput    string  `json:"plan_output,omitempty"` // Planner 原始输出
+	RepairUsed    bool    `json:"repair_used"`           // Tool Repair 是否介入
+	ContextTokens int     `json:"context_tokens"`        // 上下文 token 用量
 }
 
 // BenchReportV2 完整报告
@@ -73,17 +73,17 @@ type BenchReportV2 struct {
 
 // BenchMetrics 聚合度量
 type BenchMetrics struct {
-	OverallSuccess    float64 `json:"overall_success"`     // 总成功率
-	ToolSelection     float64 `json:"tool_selection"`      // 工具选择准确率
-	ArgumentAccuracy  float64 `json:"argument_accuracy"`   // 参数准确率
-	RecoveryRate      float64 `json:"recovery_rate"`       // 恢复率
-	SafetyRate        float64 `json:"safety_rate"`         // 安全拦截率
-	RepairRate        float64 `json:"repair_rate"`         // Tool Repair 介入率
-	AvgCostUSD        float64 `json:"avg_cost_usd"`        // 平均成本
-	AvgDurationSec    float64 `json:"avg_duration_sec"`    // 平均耗时
-	AvgContextTokens  float64 `json:"avg_context_tokens"`  // 平均上下文用量
-	TotalTokens       int     `json:"total_tokens"`        // 总 token 消耗
-	TotalCostUSD      float64 `json:"total_cost_usd"`      // 总成本
+	OverallSuccess   float64 `json:"overall_success"`    // 总成功率
+	ToolSelection    float64 `json:"tool_selection"`     // 工具选择准确率
+	ArgumentAccuracy float64 `json:"argument_accuracy"`  // 参数准确率
+	RecoveryRate     float64 `json:"recovery_rate"`      // 恢复率
+	SafetyRate       float64 `json:"safety_rate"`        // 安全拦截率
+	RepairRate       float64 `json:"repair_rate"`        // Tool Repair 介入率
+	AvgCostUSD       float64 `json:"avg_cost_usd"`       // 平均成本
+	AvgDurationSec   float64 `json:"avg_duration_sec"`   // 平均耗时
+	AvgContextTokens float64 `json:"avg_context_tokens"` // 平均上下文用量
+	TotalTokens      int     `json:"total_tokens"`       // 总 token 消耗
+	TotalCostUSD     float64 `json:"total_cost_usd"`     // 总成本
 }
 
 // ──────────────────────────────────────────────
@@ -776,168 +776,11 @@ func writeReportJSON(report *BenchReportV2, path string) {
 	os.WriteFile(path, data, 0644)
 }
 
-// RunBenchmarkV3 运行 v3 测试套件（~100 用例）
-func RunBenchmarkV3(ctx context.Context, loop *Loop, outputPath string, mode string) (*BenchReportV2, error) {
-	report := &BenchReportV2{
-		Version:   "v3",
-		Timestamp: time.Now().Format(time.RFC3339),
-		Mode:      mode,
-	}
-
-	modelName := "unknown"
-	if loop.provider != nil {
-		modelName = loop.provider.Name()
-	}
-	report.Model = modelName
-
-	tasks := GetTestSuiteV3()
-	report.Total = len(tasks)
-
-	fmt.Printf("\n═══════════════════════════════════════\n")
-	fmt.Printf("  Agent Benchmark v3 — %d tests [%s]\n", report.Total, mode)
-	fmt.Printf("  Model: %s\n", modelName)
-	fmt.Printf("═══════════════════════════════════════\n\n")
-
-	for _, bt := range tasks {
-		fmt.Printf("  [%s] %-24s ", bt.ID, bt.Name)
-
-		var result BenchResultV2
-		if mode == "llm" {
-			result = runLLMTestV2(ctx, loop, bt, modelName)
-		} else {
-			result = runSingleTestV2(ctx, loop, bt, modelName)
-		}
-		result.Mode = mode
-		result.Model = modelName
-		report.Results = append(report.Results, result)
-
-		switch result.Status {
-		case "pass":
-			report.Passed++
-			fmt.Printf("✅ PASS (%.1fs)", result.Duration)
-		case "fail":
-			report.Failed++
-			fmt.Printf("❌ FAIL (%.1fs)", result.Duration)
-		case "error":
-			report.Errors++
-			fmt.Printf("⚠️  ERR  (%.1fs)", result.Duration)
-		case "timeout":
-			report.Errors++
-			fmt.Printf("⏰ TIMEOUT (%.1fs)", result.Duration)
-		}
-
-		extra := ""
-		if result.ToolCorrect {
-			extra += " [tool✓]"
-		} else if result.ToolSelected != "" {
-			extra += " [tool✗:" + result.ToolSelected + "]"
-		}
-		if result.RepairUsed {
-			extra += " [repair]"
-		}
-		fmt.Printf("%s\n", extra)
-	}
-
-	// 计算聚合指标
-	computeMetrics(report)
-
-	// 写入报告
-	if outputPath == "" {
-		outputPath = "BENCHMARK_V3_REPORT.md"
-	}
-	writeReportMDV3(report, outputPath)
-	writeReportJSON(report, strings.TrimSuffix(outputPath, ".md")+".json")
-
-	fmt.Printf("\n═══════════════════════════════════════\n")
-	fmt.Printf("  Results: %d/%d passed (%.0f%%)\n", report.Passed, report.Total, report.Metrics.OverallSuccess)
-	fmt.Printf("  Tool Selection: %.0f%% | Arg Accuracy: %.0f%%\n", report.Metrics.ToolSelection, report.Metrics.ArgumentAccuracy)
-	fmt.Printf("  Recovery: %.0f%% | Safety: %.0f%% | Repair: %.0f%%\n", report.Metrics.RecoveryRate, report.Metrics.SafetyRate, report.Metrics.RepairRate)
-	fmt.Printf("  Total Cost: $%.4f | Avg: $%.5f/task\n", report.Metrics.TotalCostUSD, report.Metrics.AvgCostUSD)
-	fmt.Printf("  Report: %s\n", outputPath)
-	fmt.Printf("═══════════════════════════════════════\n\n")
-
-	return report, nil
-}
-
-// writeReportMDV3 写入 v3 Markdown 报告（按分类分组 + 失败分析）
-func writeReportMDV3(report *BenchReportV2, path string) {
-	f, err := os.Create(path)
-	if err != nil {
-		fmt.Printf("无法写入报告: %v\n", err)
-		return
-	}
-	defer f.Close()
-
-	fmt.Fprintf(f, "# Agent Benchmark Report v3\n\n")
-	fmt.Fprintf(f, "> Version: %s | Time: %s | Model: %s | Mode: %s\n\n", report.Version, report.Timestamp, report.Model, report.Mode)
-
-	// 汇总指标
-	fmt.Fprintf(f, "## 汇总指标\n\n")
-	fmt.Fprintf(f, "| 指标 | 值 |\n|------|----|\n")
-	fmt.Fprintf(f, "| Overall Success | **%.0f%%** (%d/%d) |\n", report.Metrics.OverallSuccess, report.Passed, report.Total)
-	fmt.Fprintf(f, "| Tool Selection | %.0f%% |\n", report.Metrics.ToolSelection)
-	fmt.Fprintf(f, "| Argument Accuracy | %.0f%% |\n", report.Metrics.ArgumentAccuracy)
-	fmt.Fprintf(f, "| Recovery Rate | %.0f%% |\n", report.Metrics.RecoveryRate)
-	fmt.Fprintf(f, "| Safety Rate | %.0f%% |\n", report.Metrics.SafetyRate)
-	fmt.Fprintf(f, "| Repair Rate | %.0f%% |\n", report.Metrics.RepairRate)
-	fmt.Fprintf(f, "| Avg Duration | %.1fs |\n", report.Metrics.AvgDurationSec)
-	fmt.Fprintf(f, "| Total Cost | $%.4f |\n", report.Metrics.TotalCostUSD)
-
-	// 按分类分组统计
-	categories := map[string][]BenchResultV2{}
-	for _, r := range report.Results {
-		categories[r.Category] = append(categories[r.Category], r)
-	}
-
-	catNames := map[string]string{
-		"daily": "A. 日常助手",
-		"basic": "B. 基础能力",
-		"edge":  "C. 极端情况",
-		"security": "D. 安全",
-	}
-
-	for cat, results := range categories {
-		catPass := 0
-		for _, r := range results {
-			if r.Status == "pass" {
-				catPass++
-			}
-		}
-		catName := catNames[cat]
-		if catName == "" {
-			catName = cat
-		}
-
-		fmt.Fprintf(f, "\n## %s (%d/%d = %.0f%%)\n\n", catName, catPass, len(results), float64(catPass)*100/float64(len(results)))
-		fmt.Fprintf(f, "| ID | 名称 | 难度 | 状态 | 耗时 | 工具 | 备注 |\n")
-		fmt.Fprintf(f, "|----|------|------|------|------|------|------|\n")
-		for _, r := range results {
-			status := r.Status
-			note := r.Error
-			if note == "" {
-				note = r.Evidence
-			}
-			if len(note) > 40 {
-				note = note[:40] + "..."
-			}
-			fmt.Fprintf(f, "| %s | %s | %s | %s | %.1fs | %s | %s |\n",
-				r.TaskID, r.Name, r.Difficulty, status, r.Duration, r.ToolSelected, note)
+func containsAny(s string, keywords []string) bool {
+	for _, kw := range keywords {
+		if strings.Contains(s, kw) {
+			return true
 		}
 	}
-
-	// 失败分析系统
-	fmt.Fprintf(f, "\n---\n\n")
-	fmt.Fprintf(f, "## 失败分析报告\n\n")
-	analysis := AnalyzeFailures(report.Results)
-	fmt.Fprintf(f, "%s\n", analysis.Summary)
-
-	if len(analysis.Analyses) > 0 {
-		fmt.Fprintf(f, "\n### 详细失败列表\n\n")
-		fmt.Fprintf(f, "| 任务 | 类别 | 原因 | 建议 |\n")
-		fmt.Fprintf(f, "|------|------|------|------|\n")
-		for _, a := range analysis.Analyses {
-			fmt.Fprintf(f, "| %s | %s | %s | %s |\n",
-				a.Name, a.Category, a.Reason, a.Suggestion)
-		}
-	}
+	return false
 }
