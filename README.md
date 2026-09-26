@@ -1,31 +1,25 @@
-> **状态**：`portfolio` / `local-tool` · **非生产就绪** · 默认仅本机 `127.0.0.1`  
-> **安全**：见 [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md) 与 [docs/SECURITY.md](docs/SECURITY.md)  
-> **硬化**：空 scopes 不再等于全权；shell/fs:delete 默认需确认；`?token=` 仅限事件流  
-<p align="center">
-  <strong>Lumen - 流明</strong>
-</p>
+<div align="center">
 
-[![Tests](https://github.com/anyuer678/lumen/actions/workflows/test.yml/badge.svg)](https://github.com/anyuer678/lumen/actions/workflows/test.yml)
-<p align="center">
-  <em>Your personal intelligence layer - 你的个人智能中枢</em>
-</p>
-<p align="center">
-  <em>一个 24/7 常驻运行、能操控整台电脑的开源 AI Runtime</em>
-</p>
-
-<p align="center">
-  <a href="https://github.com/anyuer678/lumen"><img alt="Stars" src="https://img.shields.io/github/stars/anyuer678/lumen"></a>
-  <a href="https://github.com/anyuer678/lumen/network/members"><img alt="Forks" src="https://img.shields.io/github/forks/anyuer678/lumen"></a>
-  <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/License-MIT-blue.svg"></a>
-  <img alt="Go" src="https://img.shields.io/badge/Go-1.26-00ADD8">
-  <img alt="Frontend" src="https://img.shields.io/badge/React-18-61dafb">
-  <img alt="Tests" src="https://img.shields.io/badge/tests-64%20passed-brightgreen">
-</p>
-
----
-
-> **Security Warning**: 本项目处于早期测试阶段，**安全性仍未经过完整的独立审计**，当前仅作为测试版本使用。请勿在未加固的情况下公网部署。
-
+# Lumen · 流明
+
+_Your personal intelligence layer — 你的个人智能中枢_
+
+_一个 24/7 常驻运行、能操控整台电脑的开源 AI Runtime_
+
+<p align="center">
+  <a href="https://github.com/anyuer678/lumen/actions/workflows/test.yml"><img alt="Tests" src="https://github.com/anyuer678/lumen/actions/workflows/test.yml/badge.svg"></a>
+  <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/License-MIT-blue.svg"></a>
+  <img alt="Go" src="https://img.shields.io/badge/Go-1.26-00ADD8">
+  <img alt="Frontend" src="https://img.shields.io/badge/React-18-61dafb">
+</p>
+
+</div>
+
+---
+
+> **状态**：`portfolio` · **非生产就绪** · 默认仅本机 `127.0.0.1`  
+> **安全**：见 [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md) 与 [docs/SECURITY.md](docs/SECURITY.md)；本项目处于早期测试阶段，未经完整独立审计，勿公网部署  
+> **硬化**：空 scopes 不再等于全权；shell/fs:delete 默认需确认；`?token=` 仅限事件流  
 ## Why
 
 市面上多数 Agent 停在 "LLM + Tools"。Lumen 额外补齐了很多人忽视、却决定"Agent 能否长期可用"的部分：
