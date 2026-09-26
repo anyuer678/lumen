@@ -211,9 +211,6 @@ func runBenchmark() error {
 		if arg == "--llm" || arg == "-llm" {
 			mode = "llm"
 		}
-		if arg == "--v1" || arg == "-v1" {
-			benchVersion = "v1"
-		}
 		if arg == "--v2" || arg == "-v2" {
 			benchVersion = "v2"
 		}
@@ -237,14 +234,7 @@ func runBenchmark() error {
 
 	loop := initLoop(db)
 
-	if benchVersion == "v1" {
-		report, err := agent.RunBenchmark(context.Background(), loop, filepath.Join(tmpDir, "BENCHMARK_REPORT.md"), mode)
-		if err != nil {
-			return err
-		}
-		fmt.Printf("\n=== v1 完成 ===\n")
-		fmt.Printf("通过: %d/%d (%.0f%%)\n", report.Passed, report.Total, float64(report.Passed)*100/float64(report.Total))
-	} else if benchVersion == "v2" {
+	if benchVersion == "v2" {
 		report, err := agent.RunBenchmarkV2(context.Background(), loop, filepath.Join(tmpDir, "BENCHMARK_V2_REPORT.md"), mode)
 		if err != nil {
 			return err
