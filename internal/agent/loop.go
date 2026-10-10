@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"runtime"
+	"sync"
 	"sync/atomic"
 
 	"agent/internal/auth"
@@ -24,6 +25,7 @@ type Loop struct {
 	store        *task.Store
 	logger       *zap.SugaredLogger
 	tools        map[string]Tool
+	toolsMu      sync.RWMutex // 保护 tools：MCP 运行时注册/注销与任务执行 goroutine 并发读写
 	provider     llm.Provider
 	router       *llm.Router // 智能路由器
 	planner      *LLMPlanner
@@ -101,9 +103,9 @@ func (l *Loop) SetRouter(r *llm.Router) {
 
 		if len(chain) > 1 {
 			fallback := llm.NewFallbackProvider(chain...)
-			l.planner = NewLLMPlanner(fallback, l.tools)
+			l.planner = NewLLMPlanner(fallback, l.toolsSnapshot)
 			l.evaluator = NewLLMEvaluator(fallback)
-			l.replanner = NewLLMReplanner(fallback, l.tools)
+			l.replanner = NewLLMReplanner(fallback, l.toolsSnapshot)
 			l.logger.Infof("agent loop: fallback chain built: %d providers", len(chain))
 		}
 	}
@@ -111,10 +113,16 @@ func (l *Loop) SetRouter(r *llm.Router) {
 
 // SetVisionAnalyzer 将视觉分析器注入 ComputerTool（LLM provider 可用后调用）
 func (l *Loop) SetVisionAnalyzer(a *vision.Analyzer) {
-	if ct, ok := l.tools["computer"].(*ComputerTool); ok {
-		ct.SetVisionAnalyzer(a)
-		l.logger.Infof("vision analyzer injected into computer tool")
+	raw, ok := l.getTool("computer")
+	if !ok {
+		return
 	}
+	ct, ok := raw.(*ComputerTool)
+	if !ok {
+		return
+	}
+	ct.SetVisionAnalyzer(a)
+	l.logger.Infof("vision analyzer injected into computer tool")
 }
 
 // SetEventBus 注入事件总线（用于任务失败时触发主动恢复）
@@ -188,9 +196,9 @@ func NewLoop(db *sql.DB, logger *zap.Logger, provider llm.Provider) *Loop {
 
 	// 初始化 LLM 组件（provider 为 nil 时使用模拟模式）
 	if provider != nil {
-		l.planner = NewLLMPlanner(provider, l.tools)
+		l.planner = NewLLMPlanner(provider, l.toolsSnapshot)
 		l.evaluator = NewLLMEvaluator(provider)
-		l.replanner = NewLLMReplanner(provider, l.tools)
+		l.replanner = NewLLMReplanner(provider, l.toolsSnapshot)
 	} else {
 		l.planner = nil
 		l.evaluator = nil
@@ -200,9 +208,31 @@ func NewLoop(db *sql.DB, logger *zap.Logger, provider llm.Provider) *Loop {
 	return l
 }
 
-// RegisterTool 注册工具
+// RegisterTool 注册工具（并发安全：MCP 运行时注册与任务执行并发）
 func (l *Loop) RegisterTool(t Tool) {
+	l.toolsMu.Lock()
+	defer l.toolsMu.Unlock()
 	l.tools[t.Name()] = t
+}
+
+// getTool 按名取工具（读锁）
+func (l *Loop) getTool(name string) (Tool, bool) {
+	l.toolsMu.RLock()
+	defer l.toolsMu.RUnlock()
+	t, ok := l.tools[name]
+	return t, ok
+}
+
+// toolsSnapshot 返回 tools 的浅拷贝快照（读锁下复制，供 planner/evaluator 等持有方
+// 安全遍历；后续注册的新工具在下一次取快照时可见）
+func (l *Loop) toolsSnapshot() map[string]Tool {
+	l.toolsMu.RLock()
+	defer l.toolsMu.RUnlock()
+	out := make(map[string]Tool, len(l.tools))
+	for k, v := range l.tools {
+		out[k] = v
+	}
+	return out
 }
 
 // ToolMeta 工具元信息
@@ -215,7 +245,7 @@ type ToolMeta struct {
 // ListTools 列出所有已注册工具
 func (l *Loop) ListTools() []ToolMeta {
 	var metas []ToolMeta
-	for name, t := range l.tools {
+	for name, t := range l.toolsSnapshot() {
 		metas = append(metas, ToolMeta{
 			Name:          name,
 			Description:   t.Description(),

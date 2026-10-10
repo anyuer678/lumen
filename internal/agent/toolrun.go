@@ -80,7 +80,7 @@ func EffectiveRequiredLevel(tool Tool, toolName string, args map[string]any) int
 // - shell.run：argv-only 档直接拒绝；strict 档每一次强制确认；审计必写
 // - 策略 NeedConfirm 与破坏性命令分类合并为 **一次** 确认；确认服务不可用时 fail-closed
 func (l *Loop) RunTool(ctx context.Context, name string, args map[string]any) (*ToolResult, error) {
-	tool, ok := l.tools[name]
+	tool, ok := l.getTool(name)
 	if !ok {
 		// Sprint3：默认未注册的高危面给出明确拒绝原因，而非含糊的 not found
 		if name == "computer" && !config.ComputerUseEnabled() {
