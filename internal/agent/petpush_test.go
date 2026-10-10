@@ -1,25 +1,29 @@
 package agent
 
 import (
-	"fmt"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 )
 
 func TestPetPush_NormalPush(t *testing.T) {
-	// 模拟桌宠 push API
+	// 模拟桌宠 push API（received 由 handler goroutine 写、测试 goroutine 读，须加锁）
+	var mu sync.Mutex
 	var received map[string]string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Header.Get("Authorization") != "Bearer test123" {
 			w.WriteHeader(401)
 			return
 		}
+		mu.Lock()
 		json.NewDecoder(r.Body).Decode(&received)
+		mu.Unlock()
 		w.WriteHeader(200)
 	}))
 	defer srv.Close()
@@ -52,10 +56,13 @@ func TestPetPush_NormalPush(t *testing.T) {
 	}
 	// postEvent 在 goroutine 中异步执行，轮询等待送达
 	deadline := time.Now().Add(2 * time.Second)
-	for received == nil && time.Now().Before(deadline) {
+	for func() bool { mu.Lock(); defer mu.Unlock(); return received == nil }() && time.Now().Before(deadline) {
 		time.Sleep(10 * time.Millisecond)
 	}
-	if received == nil {
+	mu.Lock()
+	got := received
+	mu.Unlock()
+	if got == nil {
 		t.Error("expected to receive event, got nil")
 	}
 }
