@@ -104,7 +104,14 @@ func (h *SettingsHandler) UpdateSettings(w http.ResponseWriter, r *http.Request)
 				pv, _ := prowVal.(map[string]interface{})
 				// 从现有配置获取默认值（保留未传入的字段）
 				p := cfg.LLM.Providers[name]
-				if b, ok := pv["base_url"].(string); ok { p.BaseURL = b }
+				if b, ok := pv["base_url"].(string); ok {
+					// 与 /settings/llm/base-url 接口同防：SSRF（仅公网 HTTP(S)）
+					if err := validatePublicURL(b); err != nil {
+						http.Error(w, fmt.Sprintf("provider %q base_url invalid: %v", name, err), http.StatusBadRequest)
+						return
+					}
+					p.BaseURL = b
+				}
 				if m, ok := pv["model"].(string); ok { p.Model = m }
 				if k, ok := pv["api_key_env"].(string); ok { p.APIKeyEnv = k }
 				if t, ok := pv["type"].(string); ok { p.Type = t }

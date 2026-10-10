@@ -14,11 +14,12 @@ import (
 // LLMPlanner 基于 LLM 的 Planner
 type LLMPlanner struct {
 	provider llm.Provider
-	tools    map[string]Tool
+	// tools 返回当前注册工具的快照（Loop.toolsSnapshot），避免并发读写注册表
+	tools func() map[string]Tool
 }
 
 // NewLLMPlanner 创建 LLM Planner
-func NewLLMPlanner(provider llm.Provider, tools map[string]Tool) *LLMPlanner {
+func NewLLMPlanner(provider llm.Provider, tools func() map[string]Tool) *LLMPlanner {
 	return &LLMPlanner{
 		provider: provider,
 		tools:    tools,
@@ -44,7 +45,7 @@ func (p *LLMPlanner) Plan(ctx context.Context, goal string, memory string) (*Pla
 
 	// 构建工具描述（含参数示例）
 	var toolDesc strings.Builder
-	for _, t := range p.tools {
+	for _, t := range p.tools() {
 		toolDesc.WriteString(fmt.Sprintf("- %s: %s\n", t.Name(), t.Description()))
 	}
 
@@ -139,8 +140,8 @@ func (p *LLMPlanner) parseResponse(content string) (*Plan, error) {
 
 	// 验证工具名 + 修复参数
 	for i := range planResp.Steps {
-		planResp.Steps[i].Tool = normalizeToolName(p.tools, planResp.Steps[i].Tool)
-		if _, ok := p.tools[planResp.Steps[i].Tool]; !ok {
+		planResp.Steps[i].Tool = normalizeToolName(p.tools(), planResp.Steps[i].Tool)
+		if _, ok := p.tools()[planResp.Steps[i].Tool]; !ok {
 			return nil, fmt.Errorf("unknown tool: %s", planResp.Steps[i].Tool)
 		}
 		if planResp.Steps[i].MaxRetries == 0 {

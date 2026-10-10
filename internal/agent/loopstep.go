@@ -68,9 +68,15 @@ func (l *Loop) waitForConfirmation(ctx context.Context, t *task.Task, step *Plan
 
 // executeStep 执行单个步骤，返回工具结果
 func (l *Loop) executeStep(ctx context.Context, t *task.Task, step *PlanStep, seq int) (*ToolResult, error) {
-	tool, ok := l.tools[step.Tool]
+	tool, ok := l.getTool(step.Tool)
 	if !ok {
 		return nil, fmt.Errorf("tool not found: %s", step.Tool)
+	}
+
+	// 破坏性命令已在 looprun 经人工确认：注入放行标记，shell 层凭标记执行
+	// （此前 step.destructiveApproved 只赋值从未消费，确认后的命令仍被二次拦截）
+	if step.destructiveApproved {
+		ctx = WithDestructiveApproval(ctx)
 	}
 
 	// 审计日志：工具调用

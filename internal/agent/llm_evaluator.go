@@ -71,18 +71,19 @@ func (e *LLMEvaluator) parseResponse(content string) (*EvalResponse, error) {
 // LLMReplanner 基于 LLM 的计划修正器
 type LLMReplanner struct {
 	provider llm.Provider
-	tools    map[string]Tool
+	// tools 返回当前注册工具的快照（Loop.toolsSnapshot），避免并发读写注册表
+	tools func() map[string]Tool
 }
 
 // NewLLMReplanner 创建 LLM Replanner
-func NewLLMReplanner(provider llm.Provider, tools map[string]Tool) *LLMReplanner {
+func NewLLMReplanner(provider llm.Provider, tools func() map[string]Tool) *LLMReplanner {
 	return &LLMReplanner{provider: provider, tools: tools}
 }
 
 // Replan 修正剩余计划
 func (r *LLMReplanner) Replan(ctx context.Context, goal string, failedStep PlanStep, err error, remaining []PlanStep, observation string) (*Plan, error) {
 	toolDesc := ""
-	for _, t := range r.tools {
+	for _, t := range r.tools() {
 		toolDesc += fmt.Sprintf("- %s: %s\n", t.Name(), t.Description())
 	}
 
@@ -141,8 +142,8 @@ func (r *LLMReplanner) Replan(ctx context.Context, goal string, failedStep PlanS
 
 	// 验证工具名（用 normalizeToolName 归一化，和 Planner 一致）
 	for i := range planResp.Steps {
-		planResp.Steps[i].Tool = normalizeToolName(r.tools, planResp.Steps[i].Tool)
-		if _, ok := r.tools[planResp.Steps[i].Tool]; !ok {
+		planResp.Steps[i].Tool = normalizeToolName(r.tools(), planResp.Steps[i].Tool)
+		if _, ok := r.tools()[planResp.Steps[i].Tool]; !ok {
 			return nil, fmt.Errorf("unknown tool: %s", planResp.Steps[i].Tool)
 		}
 		if planResp.Steps[i].MaxRetries == 0 {
