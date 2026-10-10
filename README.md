@@ -10,7 +10,7 @@ _一个 24/7 常驻运行、能操控整台电脑的开源 AI Runtime_
   <a href="https://github.com/anyuer678/lumen/actions/workflows/test.yml"><img alt="Tests" src="https://github.com/anyuer678/lumen/actions/workflows/test.yml/badge.svg"></a>
   <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/License-MIT-blue.svg"></a>
   <img alt="Go" src="https://img.shields.io/badge/Go-1.26-00ADD8">
-  <img alt="Frontend" src="https://img.shields.io/badge/React-18-61dafb">
+  <img alt="Frontend" src="https://img.shields.io/badge/React-19-61dafb">
 </p>
 
 </div>
@@ -206,9 +206,9 @@ curl http://127.0.0.1:14000/v1/tools/ -H "Authorization: Bearer $TOKEN"
 
 - **Backend**: Go 1.26 + chi + SQLite (WAL)
 
-- **Frontend**: React 18 + TypeScript + Vite
+- **Frontend**: React 19 + TypeScript + Vite
 
-- **Testing**: go test (64 tests)
+- **Testing**: go test (144 tests)
 
 
 
