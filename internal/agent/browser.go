@@ -111,6 +111,7 @@ func (t *BrowserTool) Execute(ctx context.Context, args map[string]any) (*ToolRe
 }
 
 // cdp 通过 chromedp 执行浏览器 DOM 操作（点击/输入/导航/滚动/读取）
+// chromedp v0.20 API：无返回值动作用 Do，取值动作用泛型 Run[T]；选择器用 CSS() 类型。
 func (t *BrowserTool) cdp(ctx context.Context, op string, args map[string]any) (*ToolResult, error) {
 	// 使用本机已有的 chromium（Playwright 二进制）
 	execPath := t.findExecutable()
@@ -140,12 +141,14 @@ func (t *BrowserTool) cdp(ctx context.Context, op string, args map[string]any) (
 		if err := validateURL(url); err != nil {
 			return nil, fmt.Errorf("navigate: %w", err)
 		}
-		var title, body string
-		err := chromedp.Run(bctx,
-			chromedp.Navigate(url),
-			chromedp.Title(&title),
-			chromedp.Text("body", &body, chromedp.ByQuery),
-		)
+		if err := chromedp.Do(bctx, chromedp.Navigate(url)); err != nil {
+			return nil, fmt.Errorf("navigate: %w", err)
+		}
+		title, err := chromedp.Run(bctx, chromedp.Title())
+		if err != nil {
+			return nil, fmt.Errorf("navigate: %w", err)
+		}
+		body, err := chromedp.Run(bctx, chromedp.Text(chromedp.CSS("body")))
 		if err != nil {
 			return nil, fmt.Errorf("navigate: %w", err)
 		}
@@ -159,13 +162,15 @@ func (t *BrowserTool) cdp(ctx context.Context, op string, args map[string]any) (
 		if selector == "" {
 			return nil, fmt.Errorf("selector is required for click")
 		}
-		var text string
-		err := chromedp.Run(bctx,
+		err := chromedp.Do(bctx,
 			chromedp.Navigate(firstNonEmpty(args, "url", "https://www.baidu.com")),
-			chromedp.WaitVisible(selector, chromedp.ByQuery),
-			chromedp.Click(selector, chromedp.ByQuery),
-			chromedp.Text("body", &text, chromedp.ByQuery),
+			chromedp.WaitVisible(chromedp.CSS(selector)),
+			chromedp.Click(chromedp.CSS(selector)),
 		)
+		if err != nil {
+			return nil, fmt.Errorf("click: %w", err)
+		}
+		text, err := chromedp.Run(bctx, chromedp.Text(chromedp.CSS("body")))
 		if err != nil {
 			return nil, fmt.Errorf("click: %w", err)
 		}
@@ -186,11 +191,11 @@ func (t *BrowserTool) cdp(ctx context.Context, op string, args map[string]any) (
 		if text == "" {
 			return nil, fmt.Errorf("text (or query) is required for type")
 		}
-		err := chromedp.Run(bctx,
+		err := chromedp.Do(bctx,
 			chromedp.Navigate(firstNonEmpty(args, "url", "https://www.baidu.com")),
-			chromedp.WaitVisible(selector, chromedp.ByQuery),
-			chromedp.Click(selector, chromedp.ByQuery),
-			chromedp.SendKeys(selector, text, chromedp.ByQuery),
+			chromedp.WaitVisible(chromedp.CSS(selector)),
+			chromedp.Click(chromedp.CSS(selector)),
+			chromedp.SendKeys(chromedp.CSS(selector), text),
 		)
 		if err != nil {
 			return nil, fmt.Errorf("type: %w", err)
@@ -198,14 +203,14 @@ func (t *BrowserTool) cdp(ctx context.Context, op string, args map[string]any) (
 		result = fmt.Sprintf("已在 %s 输入: %s", selector, text)
 
 	case "back":
-		var title string
-		err := chromedp.Run(bctx,
+		err := chromedp.Do(bctx,
 			chromedp.Navigate("https://www.baidu.com"),
-			chromedp.ActionFunc(func(ctx context.Context) error {
-				return chromedp.NavigateBack().Do(ctx)
-			}),
-			chromedp.Title(&title),
+			chromedp.NavigateBack(),
 		)
+		if err != nil {
+			return nil, fmt.Errorf("back: %w", err)
+		}
+		title, err := chromedp.Run(bctx, chromedp.Title())
 		if err != nil {
 			return nil, fmt.Errorf("back: %w", err)
 		}
@@ -220,9 +225,9 @@ func (t *BrowserTool) cdp(ctx context.Context, op string, args map[string]any) (
 		if direction == "up" {
 			amount = -amount
 		}
-		err := chromedp.Run(bctx,
+		err := chromedp.Do(bctx,
 			chromedp.Navigate(firstNonEmpty(args, "url", "https://www.baidu.com")),
-			chromedp.ScrollIntoView("body", chromedp.ByQuery),
+			chromedp.ScrollIntoView(chromedp.CSS("body")),
 		)
 		if err != nil {
 			return nil, fmt.Errorf("scroll: %w", err)
@@ -235,11 +240,10 @@ func (t *BrowserTool) cdp(ctx context.Context, op string, args map[string]any) (
 		if err := validateURL(url); err != nil {
 			return nil, fmt.Errorf("readom: %w", err)
 		}
-		var text string
-		err := chromedp.Run(bctx,
-			chromedp.Navigate(url),
-			chromedp.Text("body", &text, chromedp.ByQuery, chromedp.NodeVisible),
-		)
+		if err := chromedp.Do(bctx, chromedp.Navigate(url)); err != nil {
+			return nil, fmt.Errorf("readom: %w", err)
+		}
+		text, err := chromedp.Run(bctx, chromedp.Text(chromedp.CSS("body"), chromedp.NodeVisible))
 		if err != nil {
 			return nil, fmt.Errorf("readom: %w", err)
 		}
@@ -278,28 +282,28 @@ func (t *BrowserTool) cdp(ctx context.Context, op string, args map[string]any) (
 			return items.slice(0, 8);
 		}`
 
+		// 先导航+等待，再用泛型 Evaluate[[]byte] 取原始 JSON
 		var raw []byte
+		runSearch := func(pageURL string, wait time.Duration) error {
+			if err := chromedp.Do(bctx, chromedp.Navigate(pageURL), chromedp.Sleep(wait)); err != nil {
+				return err
+			}
+			rawJSON, err := chromedp.Run(bctx, chromedp.Evaluate[[]byte](jsSearch))
+			if err != nil {
+				return err
+			}
+			raw = rawJSON
+			return nil
+		}
 		var searchErr error
 		switch engine {
 		case "baidu":
 			// 直接用 URL 导航（更稳定），避免模拟输入/点击
-			searchErr = chromedp.Run(bctx,
-				chromedp.Navigate("https://www.baidu.com/s?wd="+query),
-				chromedp.Sleep(3*time.Second),
-				chromedp.Evaluate(jsSearch, &raw),
-			)
+			searchErr = runSearch("https://www.baidu.com/s?wd="+query, 3*time.Second)
 		case "bing":
-			searchErr = chromedp.Run(bctx,
-				chromedp.Navigate("https://www.bing.com/search?q="+query),
-				chromedp.Sleep(5*time.Second),
-				chromedp.Evaluate(jsSearch, &raw),
-			)
+			searchErr = runSearch("https://www.bing.com/search?q="+query, 5*time.Second)
 		case "google":
-			searchErr = chromedp.Run(bctx,
-				chromedp.Navigate("https://www.google.com/search?q="+query),
-				chromedp.Sleep(3*time.Second),
-				chromedp.Evaluate(jsSearch, &raw),
-			)
+			searchErr = runSearch("https://www.google.com/search?q="+query, 3*time.Second)
 		default:
 			return nil, fmt.Errorf("unknown search engine: %s", engine)
 		}
@@ -312,7 +316,7 @@ func (t *BrowserTool) cdp(ctx context.Context, op string, args map[string]any) (
 			results = nil
 		}
 		var sb strings.Builder
-		sb.WriteString(fmt.Sprintf("百度搜索结果（%s）：\n", query))
+		sb.WriteString(fmt.Sprintf("搜索结果（%s）：\n", query))
 		for i, r := range results {
 			sb.WriteString(fmt.Sprintf("%d. %s\n   %s\n", i+1, r["title"], r["url"]))
 		}
@@ -369,12 +373,13 @@ func (t *BrowserTool) open(ctx context.Context, url string) (*ToolResult, error)
 		defer cancelA()
 		ctx2, cancelB := chromedp.NewContext(bctx)
 		defer cancelB()
-		chromedp.Run(ctx2,
-			chromedp.Navigate(url),
-			chromedp.Sleep(2*time.Second),
-			chromedp.Title(&title),
-			chromedp.Text("body", &text, chromedp.ByQuery, chromedp.NodeVisible),
-		)
+		_ = chromedp.Do(ctx2, chromedp.Navigate(url), chromedp.Sleep(2*time.Second))
+		if v, err := chromedp.Run(ctx2, chromedp.Title()); err == nil {
+			title = v
+		}
+		if v, err := chromedp.Run(ctx2, chromedp.Text(chromedp.CSS("body"), chromedp.NodeVisible)); err == nil {
+			text = v
+		}
 	}
 
 	summary := fmt.Sprintf("已在浏览器打开: %s", url)
@@ -734,11 +739,10 @@ func (t *BrowserTool) fetchText(ctx context.Context, urlStr string, maxLen int) 
 	bctx, cancelB := chromedp.NewContext(actx)
 	defer cancelB()
 
-	var text string
-	err := chromedp.Run(bctx,
-		chromedp.Navigate(urlStr),
-		chromedp.Text("body", &text, chromedp.ByQuery, chromedp.NodeVisible),
-	)
+	if err := chromedp.Do(bctx, chromedp.Navigate(urlStr)); err != nil {
+		return "", err
+	}
+	text, err := chromedp.Run(bctx, chromedp.Text(chromedp.CSS("body"), chromedp.NodeVisible))
 	if err != nil {
 		return "", err
 	}
