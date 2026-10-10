@@ -274,7 +274,26 @@ lumen 是一组 AI 工具的运行核心，以下同作者项目可围绕它组�
 | [dsh-logtimeline](https://github.com/anyuer678/dsh-logtimeline) | MCP 插件 · 日志查询——标准 MCP server，同样可注册 |
 | [keyvault](https://github.com/anyuer678/keyvault) | 密钥设施——本地加密管理 LLM Key / Token |
 
-注册后的 MCP 工具以 `mcp.<name>` 出现在工具表，走 L2 人工确认（见上方 Scopes 表的 `mcp:register`）。**联调实测配置将在验证通过后补充于此**——目前仅声明协议兼容，未承诺已联调。
+注册后的 MCP 工具以 `mcp.<name>` 出现在工具表，走 L2 人工确认（见上方 Scopes 表的 `mcp:register`）。
+
+**联调实测（2026-10-10）**：voiceconsole 已在本机完成全栈连通验证——
+
+1. `python -m voiceconsole`（stdio）应答 MCP 握手（protocol 2024-11-05），`tools/list` 返回 5 个工具：`run_cli` / `find_file` / `open_folder` / `speak` / `confirm`
+2. `conf/config.yaml` 配置级注册：启动日志 `[mcp] registered voice-console`
+3. API 动态注册 `POST /v1/mcp/servers`（`mcp:register` scope）→ `201`
+4. `POST /v1/mcp/servers/voice-console/test` → `{"status":"ok","message":"connection successful"}`
+
+```yaml
+mcp:
+    enabled: true
+    servers:
+        - name: voice-console
+          command: python          # 白名单校验 basename ∈ {python,node,npx,uvx,...}
+          args: ["-m", "voiceconsole"]
+          transport: stdio
+```
+
+dsh-logtimeline 同为 stdio MCP server（薄 wrapper `python/mcp_server.py`，工具 `log_query` / `parse_time`），已同场实测：API 注册 → `POST /v1/mcp/servers/dsh-logtimeline/test` → `{"status":"ok"}`。
 
 体系地图：[https://anyuer678.github.io/yuer.dev/map](https://anyuer678.github.io/yuer.dev/map)
 
