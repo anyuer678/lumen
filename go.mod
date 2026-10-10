@@ -2,6 +2,8 @@ module agent
 
 go 1.26.6
 
+toolchain go1.26.9
+
 require (
 	github.com/chromedp/chromedp v0.16.0
 	github.com/fsnotify/fsnotify v1.10.1
