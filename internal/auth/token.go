@@ -77,6 +77,28 @@ const AdminTokenScopes = ScopeToolsRun + "," + ScopeTasksCreate + "," + ScopeTas
 	"," + ScopeConfirmApprove + "," + ScopeMCPRegister + "," + ScopeTokenManage +
 	"," + ScopeEventsEmit + "," + ScopeEventsRead + "," + ScopeKBWrite + "," + ScopeSettingsWrite
 
+// knownScopes 全部合法 scope 集合（签发端白名单校验用）。
+var knownScopes = map[string]bool{
+	ScopeToolsRun: true, ScopeTasksCreate: true, ScopeTasksControl: true,
+	ScopeConfirmApprove: true, ScopeMCPRegister: true, ScopeTokenManage: true,
+	ScopeEventsEmit: true, ScopeEventsRead: true, ScopeKBWrite: true, ScopeSettingsWrite: true,
+}
+
+// ValidateScopes 校验逗号分隔的 scopes 串：每个条目必须是已知 scope 且非空。
+// 签发 token 前必须调用，防止未知/垃圾 scope 原样入库形成永远无法通过
+// RequireScope 门禁的「死 token」，或为将来新增 scope 埋下语义漂移。
+func ValidateScopes(scopes string) bool {
+	if strings.TrimSpace(scopes) == "" {
+		return false
+	}
+	for _, s := range strings.Split(scopes, ",") {
+		if !knownScopes[strings.TrimSpace(s)] {
+			return false
+		}
+	}
+	return true
+}
+
 // allowLegacyEmptyScopes 仅用于从旧版本迁移：
 // 历史行为「空 scopes = 全部权限」fail-open，升级后默认拒绝。
 // 迁移期设置环境变量 LUMEN_ALLOW_LEGACY_EMPTY_SCOPES=1 可暂时兼容，

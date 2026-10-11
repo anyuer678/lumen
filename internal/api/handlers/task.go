@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
+	"agent/internal/auth"
 	"agent/internal/task"
 )
 
@@ -20,18 +21,31 @@ func NewTaskHandler(manager *task.Manager) *TaskHandler {
 }
 
 // Routes 注册路由
+// scope 门禁（外部审查 2026-10：tasks:create / tasks:control 此前零引用，为死字母）：
+// - 创建 → tasks:create
+// - 暂停/恢复/停止/重试/回滚/清空 → tasks:control
+// - 读端点 → 持有任一 tasks scope 即可（对齐 events 读端点 RequireAnyScope 模式）
 func (h *TaskHandler) Routes() chi.Router {
 	r := chi.NewRouter()
-	r.Post("/", h.CreateTask)
-	r.Get("/", h.ListTasks)
-	r.Get("/{id}", h.GetTask)
-	r.Post("/{id}/pause", h.PauseTask)
-	r.Post("/{id}/resume", h.ResumeTask)
-	r.Post("/{id}/stop", h.StopTask)
-	r.Post("/{id}/retry", h.RetryTask)
-	r.Post("/{id}/rollback", h.RollbackTask)
-	r.Get("/{id}/steps", h.GetSteps)
-	r.Delete("/", h.ClearTasks)
+	r.Group(func(r chi.Router) {
+		r.Use(auth.RequireScope(auth.ScopeTasksCreate))
+		r.Post("/", h.CreateTask)
+	})
+	r.Group(func(r chi.Router) {
+		r.Use(auth.RequireAnyScope(auth.ScopeTasksCreate, auth.ScopeTasksControl))
+		r.Get("/", h.ListTasks)
+		r.Get("/{id}", h.GetTask)
+		r.Get("/{id}/steps", h.GetSteps)
+	})
+	r.Group(func(r chi.Router) {
+		r.Use(auth.RequireScope(auth.ScopeTasksControl))
+		r.Post("/{id}/pause", h.PauseTask)
+		r.Post("/{id}/resume", h.ResumeTask)
+		r.Post("/{id}/stop", h.StopTask)
+		r.Post("/{id}/retry", h.RetryTask)
+		r.Post("/{id}/rollback", h.RollbackTask)
+		r.Delete("/", h.ClearTasks)
+	})
 	return r
 }
 

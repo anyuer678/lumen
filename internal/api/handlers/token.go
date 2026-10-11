@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -190,11 +191,29 @@ func (h *TokenHandler) Create(w http.ResponseWriter, r *http.Request) {
 		if req.Scopes == auth.DefaultTokenScopes || req.Scopes == "" {
 			req.Scopes = auth.AdminTokenScopes
 		}
+		if !auth.ValidateScopes(req.Scopes) {
+			http.Error(w, `{"error":"invalid scopes: each entry must be a known scope"}`, http.StatusBadRequest)
+			return
+		}
 	} else {
 		// 正常模式：防止提权——调用者不能签发比自己更高级别的 token
 		if req.PermLevel > caller.PermLevel {
 			http.Error(w, fmt.Sprintf(`{"error":"权限不足：调用者级别 L%d 不能签发 L%d token"}`, caller.PermLevel, req.PermLevel), http.StatusForbidden)
 			return
+		}
+		// scope 白名单：未知 scope 拒绝入库（防止死 token / 语义漂移）
+		if !auth.ValidateScopes(req.Scopes) {
+			http.Error(w, `{"error":"invalid scopes: each entry must be a known scope"}`, http.StatusBadRequest)
+			return
+		}
+		// 防 scope 提权：签发的每个 scope 调用者自身必须持有
+		// （HasScope 对迁移期空 scopes 的 fail-open 行为与运行时门禁一致）
+		for _, s := range strings.Split(req.Scopes, ",") {
+			s = strings.TrimSpace(s)
+			if !caller.HasScope(s) {
+				http.Error(w, fmt.Sprintf(`{"error":"权限不足：调用者不持有 scope %q，不能签发"}`, s), http.StatusForbidden)
+				return
+			}
 		}
 	}
 
