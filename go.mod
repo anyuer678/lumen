@@ -5,7 +5,7 @@ go 1.26.6
 toolchain go1.26.9
 
 require (
-	github.com/chromedp/chromedp v0.20.1
+	github.com/chromedp/chromedp v0.21.0
 	github.com/fsnotify/fsnotify v1.10.1
 	github.com/glebarez/go-sqlite v1.23.0
 	github.com/go-chi/chi/v5 v5.3.2
