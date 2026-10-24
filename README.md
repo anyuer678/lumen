@@ -272,6 +272,8 @@ lumen 是一组 AI 工具的运行核心，以下同作者项目可围绕它组�
 |------|------|
 | [voiceconsole](https://github.com/anyuer678/voiceconsole) | MCP 插件 · 语音入口——标准 MCP server（stdio），可通过本仓 `internal/agent/mcp.go` 的 `McpServer{command, args, transport}` 配置注册 |
 | [dsh-logtimeline](https://github.com/anyuer678/dsh-logtimeline) | MCP 插件 · 日志查询——标准 MCP server，同样可注册 |
+| [developer-intelligence · pgi](https://github.com/anyuer678/developer-intelligence) | MCP 插件 · GitHub 记忆——`pgi-memory` server（`memory_search/get/timeline/related/observe`），SQLite+FTS5 本地检索你的提交/议题演化 |
+| [developer-intelligence · repo-intel](https://github.com/anyuer678/developer-intelligence) | MCP 插件 · 本地仓库理解——`repo-intel` server（`repo_scan/graph/signals/evolution`，零 LLM 静态解析，含会话缓存） |
 | [keyvault](https://github.com/anyuer678/keyvault) | 密钥设施——本地加密管理 LLM Key / Token |
 
 注册后的 MCP 工具以 `mcp.<name>` 出现在工具表，走 L2 人工确认（见上方 Scopes 表的 `mcp:register`）。
@@ -294,6 +296,20 @@ mcp:
 ```
 
 dsh-logtimeline 同为 stdio MCP server（薄 wrapper `python/mcp_server.py`，工具 `log_query` / `parse_time`），已同场实测：API 注册 → `POST /v1/mcp/servers/dsh-logtimeline/test` → `{"status":"ok"}`。
+
+**协议级预验（2026-10-24，developer-intelligence 两 server）**：以宿主同款 stdio JSON-RPC 握手（initialize protocol 2024-11-05 → tools/list → tools/call → ping）直驱进程——`pgi-memory` 五工具对真实同步库（37 仓 / 1395 commits / 321 issues）全部返回有效结果；`repo-intel` 四工具对真实仓库全通（scan 0.14s，同路径缓存命中 0.00s）。lumen 侧动态注册复验待做（需 L3 token 且 `mcp.enabled=true`），注册配置：
+
+```yaml
+# developer-intelligence 两 server（先 pip install 其子包 github-intelligence / repo-intel-core）：
+#   - name: pgi-memory
+#     command: python
+#     args: ["-m", "pgi.mcp_server", "--db", "C:\Users\<user>\.pgi\pgi.db"]
+#     transport: stdio
+#   - name: repo-intel
+#     command: python
+#     args: ["-m", "repo_intel.mcp_server"]
+#     transport: stdio
+```
 
 体系地图：[https://anyuer678.github.io/yuer.dev/map](https://anyuer678.github.io/yuer.dev/map)
 
