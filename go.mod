@@ -2,7 +2,7 @@ module agent
 
 go 1.26.6
 
-toolchain go1.26.9
+toolchain go1.26.10
 
 require (
 	github.com/chromedp/chromedp v0.20.1
