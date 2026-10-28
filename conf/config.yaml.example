@@ -107,6 +107,11 @@ mcp:
         #   command: python
         #   args: ["-m", "pgi.mcp_server", "--db", "C:\\Users\\<user>\\.pgi\\pgi.db"]
         #   transport: stdio
+        # repo-intel —— 本地仓库静态画像（developer-intelligence 子包）
+        # - name: repo-intel
+        #   command: python
+        #   args: ["-m", "repo_intel.mcp_server"]
+        #   transport: stdio
 
 
 
