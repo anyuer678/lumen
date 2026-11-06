@@ -31,13 +31,30 @@ var logger *zap.Logger
 // trajRecorders 全局轨迹记录管理器（按 task 缓存 recorder）
 var trajRecorders *trajManager
 
-// eventPublisherAdapter 适配 SSE 广播器
+// eventPublisherAdapter 适配 SSE 广播器，并把任务生命周期补发到 EventBus（供桌宠推送）
 type eventPublisherAdapter struct {
 	broadcaster *api.EventBroadcaster
+	eventBus    *agent.EventBus
 }
 
 func (a *eventPublisherAdapter) Publish(eventType string, data interface{}) {
 	a.broadcaster.Publish(api.Event{Type: eventType, Data: data})
+	if a.eventBus == nil {
+		return
+	}
+	m, _ := data.(map[string]interface{})
+	switch eventType {
+	case "task.started":
+		goal, _ := m["goal"].(string)
+		a.eventBus.EmitAsync(agent.Event{
+			Source: "task-manager", Type: agent.EventTaskStarted, Payload: goal, Priority: 5,
+		})
+	case "task.completed":
+		a.eventBus.EmitAsync(agent.Event{
+			Source: "task-manager", Type: agent.EventTaskCompleted, Priority: 5,
+		})
+	}
+	// task.failed 已由 agent-loop 在失败路径写入 EventBus，避免重复推送
 }
 
 // taskFactoryAdapter 适配 TaskManager 为 scheduler.TaskFactory
@@ -152,19 +169,33 @@ func startCore(database *sql.DB, httpSrv **http.Server, done chan struct{}) erro
 			}
 		}
 	})
-	publisher := &eventPublisherAdapter{broadcaster: api.GetBroadcaster()}
+	// EventBus 需先于任务管理器创建：publisher 会把 task.started/completed 补发进去
+	eventBus := agent.NewEventBus(database)
+	publisher := &eventPublisherAdapter{broadcaster: api.GetBroadcaster(), eventBus: eventBus}
 	taskManager := task.NewManager(database, config.Get().Agent.MaxConcurrentTasks, logger, agentLoop, publisher)
 	taskManager.Start()
 	sched := scheduler.NewScheduler(database, &taskFactoryAdapter{manager: taskManager}, logger)
 	sched.Start()
 
 	// 初始化主动任务执行器（事件驱动的自动恢复 + 每日摘要 + 文件观察）
-	eventBus := agent.NewEventBus(database)
 	policyEngine := agent.NewPolicyEngine()
 	proactive := agent.NewProactiveRunner(agentLoop, eventBus, policyEngine)
 	_ = proactive // 事件处理器通过 eventBus.Subscribe 自动注册
 	// 将 EventBus 注入 Agent Loop（任务失败时触发主动恢复）
 	agentLoop.SetEventBus(eventBus)
+	// 桌宠推送：读取 %APPDATA%/DesktopPet/pushApi.json，把任务事件推到气泡
+	petPush := agent.NewPetPushRuntime(eventBus, func(level, msg string, args ...any) {
+		fields := []zap.Field{zap.Any("args", args)}
+		switch level {
+		case "error":
+			logger.Error(msg, fields...)
+		case "warn":
+			logger.Warn(msg, fields...)
+		default:
+			logger.Info(msg, fields...)
+		}
+	})
+	petPush.Start()
 	// 设置追踪记录目录
 	agentLoop.SetTraceDir("./data/workspace/traces")
 	// 初始化反馈收集器（任务完成/失败时自动统计）
