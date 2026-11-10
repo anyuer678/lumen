@@ -140,6 +140,15 @@ func (l *Loop) SetTraceDir(dir string) {
 	l.traceDir = dir
 }
 
+// goalLoopMaxRounds 返回目标闭环允许的续跑轮数（默认 2；0 关闭闭环）。
+func (l *Loop) goalLoopMaxRounds() int {
+	cfg := config.Get()
+	if cfg == nil {
+		return 2
+	}
+	return cfg.GoalLoopMaxRounds()
+}
+
 // emitStep 广播步骤事件
 func (l *Loop) emitStep(eventType string, data map[string]any) {
 	if l.onStep != nil {
@@ -176,6 +185,8 @@ type PlanStep struct {
 
 	// destructiveApproved 内部标志：本步破坏性命令已获人工确认（不序列化）
 	destructiveApproved bool `json:"-"`
+	// shellApproved 内部标志：本步 shell.run 已经人工确认流批准（strict 档放行标记，不序列化）
+	shellApproved bool `json:"-"`
 }
 
 // NewLoop 创建 Agent Loop

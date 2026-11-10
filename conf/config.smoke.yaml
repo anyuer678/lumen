@@ -1,0 +1,14 @@
+# 冒烟测试专用配置：本机 Ollama 小模型（不改动 conf/config.yaml）
+# 启动：./lumen.exe -config conf/config.smoke.yaml
+llm:
+    default_provider: ollama-local
+    providers:
+        ollama-local:
+            type: openai-compatible
+            base_url: http://127.0.0.1:11434/v1
+            api_key_env: ""
+            model: "huihui_ai/deepseek-r1-abliterated:1.5b"
+            max_tokens: 2048
+            timeout: "120"
+agent:
+    goal_loop_max_rounds: 2

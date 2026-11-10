@@ -63,6 +63,9 @@ agent:
     step_timeout: 300s
     step_max_retries: 3
     plan_max_steps: 30
+    # 目标闭环续跑轮数：计划跑完但复核未达成时，自动续规划并继续执行的最大轮数
+    # 0 = 关闭闭环（只执行一次计划）；默认 2
+    goal_loop_max_rounds: 2
 scheduler:
     tick_interval: 60s
 permissions:

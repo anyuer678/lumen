@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+### Added（目标闭环：未达成自动续跑）
+- **目标闭环（goal loop）**：计划执行完后用独立有界 LLM 调用复核目标达成情况；
+  判定「未达成/部分达成」时，基于已完成进展续规划并继续执行，直至达成或轮数耗尽
+  - 配置 `agent.goal_loop_max_rounds`（默认 2；0 关闭闭环，保持旧行为）
+  - 复核结论无法识别时停止闭环（避免小模型输出噪声触发无谓循环）
+  - 续跑步骤沿用既有权限确认、失败重规划与检查点语义；最终结论写入任务结果与
+    `task.completed` 事件；预算耗尽发射 `task.review_exhausted`
+  - `FallbackProvider` 实现 `BoundedChat` 委托，路由/回退模式下闭环同样可用
+  - 抽取 `executePlanSteps`，把步骤执行结果（含输出摘要）纳入复核与续跑上下文
+  - 测试：`internal/agent/goal_loop_test.go`（结论解析 / 达成即停 / 续跑达成 /
+    预算耗尽 / 0 轮关闭 / 未知结论停止）
+
 ### Added（events:read 只读 scope）
 - **新增 `events:read` scope**：事件总线读端点 `GET /v1/eventbus` 接受 `events:read`
   （最小权限，适合只读监控/看板 token）或 `events:emit`（向后兼容，原有 token 不受影响）

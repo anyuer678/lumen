@@ -46,6 +46,9 @@ type Config struct {
 		StepTimeout        string `yaml:"step_timeout"`
 		StepMaxRetries     int    `yaml:"step_max_retries"`
 		PlanMaxSteps       int    `yaml:"plan_max_steps"`
+		// GoalLoopMaxRounds 目标闭环续跑轮数：计划执行完但复核未达成时，
+		// 自动续规划并继续执行的最大轮数（0 关闭闭环，保持旧行为）。
+		GoalLoopMaxRounds int `yaml:"goal_loop_max_rounds"`
 	} `yaml:"agent"`
 
 	Scheduler struct {
@@ -144,6 +147,8 @@ func defaultConfig() *Config {
 	cfg.Agent.StepTimeout = "300s"
 	cfg.Agent.StepMaxRetries = 3
 	cfg.Agent.PlanMaxSteps = 30
+	// 目标闭环：未达成时最多自动续跑 2 轮（有界，避免小模型抖动时无限循环）
+	cfg.Agent.GoalLoopMaxRounds = 2
 	cfg.Scheduler.TickInterval = "60s"
 	cfg.Permissions.PolicyFile = "./conf/permission.yaml"
 	cfg.Permissions.ConfirmTimeout = "60s"
@@ -246,6 +251,18 @@ func (c *Config) ShellProfile() string {
 // strict/argv-only 档：默认永不启用无 opt-in 的自由字符串 shell。
 func (c *Config) StringShellAllowed() bool {
 	return c.ShellProfile() == ShellProfileFull
+}
+
+// GoalLoopMaxRounds 返回目标闭环允许的续跑轮数（默认 2；0 表示关闭闭环）。
+// 闭环逻辑：计划执行完但目标复核未达成时，自动续规划并继续执行，直至达成或轮数耗尽。
+func (c *Config) GoalLoopMaxRounds() int {
+	if c == nil {
+		return 2
+	}
+	if c.Agent.GoalLoopMaxRounds < 0 {
+		return 0
+	}
+	return c.Agent.GoalLoopMaxRounds
 }
 
 // ComputerUseEnabled 返回是否启用 Computer Use 工具（默认 false）。

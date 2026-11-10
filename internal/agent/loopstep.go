@@ -78,6 +78,10 @@ func (l *Loop) executeStep(ctx context.Context, t *task.Task, step *PlanStep, se
 	if step.destructiveApproved {
 		ctx = WithDestructiveApproval(ctx)
 	}
+	// strict 档下普通 shell.run 同样需要确认流标记，否则批准后仍被 shell 层拒绝
+	if step.shellApproved {
+		ctx = WithShellApproval(ctx)
+	}
 
 	// 审计日志：工具调用
 	l.auditLogRecord(t.ID, "tool.call", fmt.Sprintf("step=%d tool=%s", seq, step.Tool), "")
