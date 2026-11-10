@@ -77,3 +77,27 @@ func isContextLimitError(err error) bool {
 func (f *FallbackProvider) LastError() error {
 	return f.lastErr
 }
+
+// BoundedChat 把无工具、确定性的复核调用委托给回退链中第一个支持该能力的
+// provider（目前为 OpenAIProvider），保证目标闭环在路由/回退模式下也可用。
+func (f *FallbackProvider) BoundedChat(ctx context.Context, system, user string, maxTokens int, timeoutSec int) (string, error) {
+	type boundedProvider interface {
+		BoundedChat(ctx context.Context, system, user string, maxTokens int, timeoutSec int) (string, error)
+	}
+	var lastErr error
+	for _, p := range f.chain {
+		bp, ok := p.(boundedProvider)
+		if !ok {
+			continue
+		}
+		out, err := bp.BoundedChat(ctx, system, user, maxTokens, timeoutSec)
+		if err == nil {
+			return out, nil
+		}
+		lastErr = fmt.Errorf("provider %s: %w", p.Name(), err)
+	}
+	if lastErr != nil {
+		return "", lastErr
+	}
+	return "", fmt.Errorf("no provider in fallback chain supports BoundedChat")
+}
