@@ -54,6 +54,10 @@ go build -o lumen ./cmd/agent
 
 # 运行
 ./lumen serve
+
+# 查询决策/审计日志（DESIGN Phase C；--json 机读，--since 按 UTC 过滤）
+./lumen decisions --limit 20
+./lumen decisions --actor agent --since 2026-11-14 --json
 ```
 
 ## Tech Stack

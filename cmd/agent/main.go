@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
@@ -63,6 +64,12 @@ func main() {
 			}
 			if err := service.Status(); err != nil {
 				fmt.Fprintf(os.Stderr, "status error: %v\n", err)
+				os.Exit(1)
+			}
+			return
+		case "decisions":
+			if err := runDecisions(); err != nil {
+				fmt.Fprintf(os.Stderr, "decisions error: %v\n", err)
 				os.Exit(1)
 			}
 			return
@@ -169,6 +176,103 @@ func runToken() error {
 	fmt.Println("   Authorization: Bearer <token>   # 或")
 	fmt.Println("   X-API-Token: <token>")
 	fmt.Println("级别说明：0=只读 1=普通（默认） 2=危险（可批准 L2 高危确认） 3=管理员（--level 3）")
+	return nil
+}
+
+// parseDecisionsArgs 解析 decisions 子命令参数（无位置参数）。
+func parseDecisionsArgs(args []string) (limit int, jsonOut bool, actor, action, since string, err error) {
+	limit = 50
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		switch {
+		case arg == "--limit":
+			if i+1 >= len(args) {
+				return 0, false, "", "", "", fmt.Errorf("--limit 需要一个取值")
+			}
+			i++
+			n, e := strconv.Atoi(args[i])
+			if e != nil || n <= 0 {
+				return 0, false, "", "", "", fmt.Errorf("--limit 取值须为正整数")
+			}
+			limit = n
+		case arg == "--json":
+			jsonOut = true
+		case arg == "--actor":
+			if i+1 >= len(args) {
+				return 0, false, "", "", "", fmt.Errorf("--actor 需要一个取值")
+			}
+			i++
+			actor = args[i]
+		case arg == "--action":
+			if i+1 >= len(args) {
+				return 0, false, "", "", "", fmt.Errorf("--action 需要一个取值")
+			}
+			i++
+			action = args[i]
+		case arg == "--since":
+			if i+1 >= len(args) {
+				return 0, false, "", "", "", fmt.Errorf("--since 需要一个取值")
+			}
+			i++
+			since = args[i]
+		case !strings.HasPrefix(arg, "-"):
+			return 0, false, "", "", "", fmt.Errorf("decisions 不接受位置参数：%q", arg)
+		}
+	}
+	return limit, jsonOut, actor, action, since, nil
+}
+
+// runDecisions 查询并展示决策/审计日志（DESIGN Phase C：决策日志可查询）。
+// 用法：agent decisions [--limit N] [--json] [--actor X] [--action X] [--since YYYY-MM-DD]
+// 库内 ts 为 UTC；--since 亦按 UTC 比较。
+func runDecisions() error {
+	limit, jsonOut, actor, action, since, err := parseDecisionsArgs(os.Args[2:])
+	if err != nil {
+		return err
+	}
+	if err := loadConfig(); err != nil {
+		return fmt.Errorf("config: %w", err)
+	}
+	db, err := initDB()
+	if err != nil {
+		return fmt.Errorf("init db: %w", err)
+	}
+	defer db.Close()
+
+	logger := agentLog.NewAuditLogger(db)
+	entries, err := logger.Query(limit, actor, action, since)
+	if err != nil {
+		return err
+	}
+	if jsonOut {
+		data, err := json.MarshalIndent(entries, "", "  ")
+		if err != nil {
+			return err
+		}
+		fmt.Println(string(data))
+		return nil
+	}
+	if len(entries) == 0 {
+		fmt.Println("（无匹配的决策/审计记录）")
+		return nil
+	}
+	fmt.Printf("%-20s  %-12s  %-18s  %-22s  %s\n", "UTC 时间", "actor", "action", "target", "result")
+	for _, e := range entries {
+		target := e.Target
+		if len(target) > 22 {
+			target = target[:19] + "..."
+		}
+		result := e.Result
+		if len(result) > 10 {
+			result = result[:10]
+		}
+		fmt.Printf("%-20s  %-12s  %-18s  %-22s  %s\n",
+			e.TS.Format("2006-01-02 15:04:05"), e.Actor, e.Action, target, result)
+		if e.Detail != "" {
+			fmt.Printf("%20s  ↳ %s\n", "", e.Detail)
+		}
+	}
+	fmt.Printf("\n共 %d 条\n", len(entries))
 	return nil
 }
 
