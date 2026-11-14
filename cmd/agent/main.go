@@ -169,6 +169,8 @@ func runToken() error {
 		return fmt.Errorf("insert token: %w", err)
 	}
 
+	_recordTokenAudit(db, name, level)
+
 	fmt.Printf("✅ 已创建 API token（名称: %s，级别 L%d，仅显示一次）\n", name, level)
 	fmt.Printf("   %s\n\n", tokenStr)
 	fmt.Println("使用方式：")
@@ -339,6 +341,22 @@ func runBenchmark() error {
 	}
 	fmt.Printf("报告已写入\n")
 	return nil
+}
+
+// _recordTokenAudit 把 token 签发写入审计日志（安全相关动作必须留痕，DESIGN Phase C）。
+// 审计失败不阻断已完成的签发，但要在 stderr 可见。
+func _recordTokenAudit(db *sql.DB, name string, level int) {
+	logger := agentLog.NewAuditLogger(db)
+	err := logger.Record(&agentLog.AuditEntry{
+		Actor:  "cli",
+		Action: "token.create",
+		Target: name,
+		Detail: fmt.Sprintf("level=L%d", level),
+		Result: "ok",
+	})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "audit warning: 记录 token.create 失败：%v\n", err)
+	}
 }
 
 func initDB() (*sql.DB, error) {
