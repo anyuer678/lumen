@@ -97,7 +97,9 @@ func main() {
 	}
 }
 
-// loadConfig 加载配置（默认 ./conf/config.yaml，可用第2个参数指定）
+// loadConfig 加载配置（默认 ./conf/config.yaml，可用第2个参数指定）。
+// 注意：仅适用于 install/uninstall/status 等没有位置参数的子命令；
+// token 子命令必须走 parseTokenArgs（位置参数是 token 名，不是配置路径）。
 func loadConfig() error {
 	configPath := "./conf/config.yaml"
 	if len(os.Args) > 2 && !strings.HasPrefix(os.Args[2], "-") {
@@ -107,30 +109,52 @@ func loadConfig() error {
 	return err
 }
 
+// parseTokenArgs 解析 token 子命令参数，返回 (name, level, configPath, err)。
+// token 名是第一个位置参数；配置路径只能用 --config 指定。
+// 修复背景：此前 loadConfig 会把 os.Args[2]（token 名）误当配置路径，
+// 导致 `agent token <名称>` 以名称为路径读取/静默创建默认配置，
+// 并在错误的配置（含默认数据库）上签发 token。
+func parseTokenArgs(args []string) (string, int, string, error) {
+	name := "default"
+	level := 1
+	configPath := "./conf/config.yaml"
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		switch {
+		case arg == "--level":
+			if i+1 >= len(args) {
+				return "", 0, "", fmt.Errorf("--level 需要一个取值（0-3）")
+			}
+			i++
+			n, err := strconv.Atoi(args[i])
+			if err != nil || n < 0 || n > 3 {
+				return "", 0, "", fmt.Errorf("--level 取值须为 0-3 的整数")
+			}
+			level = n
+		case arg == "--config":
+			if i+1 >= len(args) {
+				return "", 0, "", fmt.Errorf("--config 需要一个配置文件路径")
+			}
+			i++
+			configPath = args[i]
+		case !strings.HasPrefix(arg, "-") && name == "default":
+			name = arg
+		}
+	}
+	return name, level, configPath, nil
+}
+
 // runToken 生成一个 API token 并写入数据库（仅输出一次明文）。
 // 用法：agent token [name] [--level 0-3]
 // 权限级别：0=只读 1=普通(默认) 2=危险(可批准高危确认) 3=管理员。
 // 此前默认签发 L3/admin token，一个泄漏的 token 即等于无确认的整机控制。
 func runToken() error {
-	name := "default"
-	level := 1
-	for i := 2; i < len(os.Args); i++ {
-		arg := os.Args[i]
-		if arg == "--level" && i+1 < len(os.Args) {
-			i++
-			n, err := strconv.Atoi(os.Args[i])
-			if err != nil || n < 0 || n > 3 {
-				return fmt.Errorf("--level 取值须为 0-3 的整数")
-			}
-			level = n
-			continue
-		}
-		if !strings.HasPrefix(arg, "-") && name == "default" {
-			name = arg
-		}
+	name, level, configPath, err := parseTokenArgs(os.Args[2:])
+	if err != nil {
+		return err
 	}
 
-	if err := loadConfig(); err != nil {
+	if _, err := config.Load(configPath); err != nil {
 		return fmt.Errorf("config: %w", err)
 	}
 	db, err := initDB()
