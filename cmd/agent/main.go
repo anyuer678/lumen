@@ -40,6 +40,7 @@ func main() {
 				fmt.Fprintf(os.Stderr, "install error: %v\n", err)
 				os.Exit(1)
 			}
+			auditServiceAction(dbIfAvailable(), "service.install", "Windows 服务注册")
 			return
 		case "uninstall":
 			if err := loadConfig(); err != nil {
@@ -50,6 +51,7 @@ func main() {
 				fmt.Fprintf(os.Stderr, "uninstall error: %v\n", err)
 				os.Exit(1)
 			}
+			auditServiceAction(dbIfAvailable(), "service.uninstall", "Windows 服务移除")
 			return
 		case "token":
 			if err := runToken(); err != nil {
@@ -370,17 +372,35 @@ func runBenchmark() error {
 // _recordTokenAudit 把 token 签发写入审计日志（安全相关动作必须留痕，DESIGN Phase C）。
 // 审计失败不阻断已完成的签发，但要在 stderr 可见。
 func _recordTokenAudit(db *sql.DB, name string, level int) {
+	_audit(db, "cli", "token.create", name, fmt.Sprintf("level=L%d", level), "ok")
+}
+
+// _audit 通用审计写入：失败仅 stderr 可见，不阻断主流程。
+func _audit(db *sql.DB, actor, action, target, detail, result string) {
 	logger := agentLog.NewAuditLogger(db)
 	err := logger.Record(&agentLog.AuditEntry{
-		Actor:  "cli",
-		Action: "token.create",
-		Target: name,
-		Detail: fmt.Sprintf("level=L%d", level),
-		Result: "ok",
+		Actor: actor, Action: action, Target: target, Detail: detail, Result: result,
 	})
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "audit warning: 记录 token.create 失败：%v\n", err)
+		fmt.Fprintf(os.Stderr, "audit warning: 记录 %s 失败：%v\n", action, err)
 	}
+}
+
+// dbIfAvailable 尽力打开本地数据库用于审计写入；失败返回 nil（审计静默跳过）。
+// 前置条件：调用方必须已执行 loadConfig()（install/uninstall 路径均满足），
+// 未加载配置时 config.Get() 会 panic——不在测试中直接调用本函数。
+func dbIfAvailable() *sql.DB {
+	db, err := initDB()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "audit warning: 数据库不可用，本次动作不入审计：%v\n", err)
+		return nil
+	}
+	return db
+}
+
+// auditServiceAction 记录服务安装/移除审计（AuditLogger 对 nil db 静默跳过）。
+func auditServiceAction(db *sql.DB, action, detail string) {
+	_audit(db, "cli", action, "lumen-service", detail, "ok")
 }
 
 func initDB() (*sql.DB, error) {
