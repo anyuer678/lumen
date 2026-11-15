@@ -141,28 +141,35 @@ API: GET /v1/events → SSE 实时推送
 
 ---
 
-## 4. 下一步路线图
+## 4. 路线图现状（2026-11-16 对照代码实况更新；原计划态文本见 git 历史）
 
-### Phase A：让 Agent 真正活起来（2-3 周）
-1. LLM 真实调用 + 多步计划
-2. 实时进度 SSE 推送
-3. 确认机制真正生效
-4. 浏览器自动化（playwright）
+> 审计方法：逐项以实现文件为证。标注含义：✅ 已落地（有实现文件）/ 🟡 部分（骨架在，深度待补）/ ❌ 未落地。
 
-### Phase B：让它真正懂电脑（2-3 周）
-5. Git/PowerShell/Office/PDF 工具
-6. 知识/RAG
-7. 长期记忆智能
+### Phase A：让 Agent 真正活起来
+1. ✅ LLM 真实调用 + 多步计划（`internal/llm/openai.go` + `internal/agent/llm_planner.go`）
+2. ✅ 实时进度 SSE 推送（`internal/api/sse.go`，`/v1/events`）
+3. ✅ 确认机制真正生效（`internal/auth/confirm.go` + `confirmations` 表 + token L0-3 分级）
+4. ✅ 浏览器自动化（`internal/agent/browser.go`，chromedp 实现 DOM 操作/导航/读取）
 
-### Phase C：让它真正可靠（1-2 周）
-8. 断点恢复
-9. 细粒度权限
-10. 决策日志
+### Phase B：让它真正懂电脑
+5. 🟡 Git/PowerShell/Office/PDF 工具（✅ Git=`agent/github.go`、PowerShell=`agent/shell.go`；❌ Office/PDF 未实现）
+6. 🟡 知识/RAG（`knowledge` 表 + `memory/kb.go` 文件解析就绪；Embedding+向量索引未实现）
+7. 🟡 长期记忆智能（`agent/memory_score.go` 重要性评分就绪；向量召回/遗忘机制未实现）
 
-### Phase D：让它真正智能（3-4 周）
-11. 任务 DAG
-12. 多 Agent
-13. 知识图谱
+### Phase C：让它真正可靠
+8. ✅ 断点恢复（`task/checkpoint.go`）
+9. ✅ 细粒度权限（`auth/permission.go` + `agent/policy*.go` + 沙箱 `sandbox_test.go`）
+10. ✅ 决策日志（`audit_logs` 表 + `agent decisions` CLI 查询，2026-11-16）
+
+### Phase D：让它真正智能
+11. ✅ 任务 DAG（`task/dag.go`）
+12. 🟡 多 Agent（`agent/delegate.go` 委派骨架就绪；完整多 Agent 协作待扩展）
+13. ❌ 知识图谱（未实现）
+
+### 仍值得做的（按本审计排序）
+- Office/PDF 工具（Phase B 唯一整块缺口）
+- Embedding/向量召回（知识/RAG 与记忆智能的共同底座）
+- 多 Agent 协作深化（delegate 骨架 → 完整闭环）
 
 ---
 
